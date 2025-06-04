@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Conversation Data",
+  "description": "Schema for the conversation.json file with podcast data",
+  "type": "object",
+  "properties": {
+    "podcast_name": {
+      "type": "string",
+      "description": "Podcast name",
+      "minLength": 1
+    },
+    "filename": {
+      "type": "string",
+      "description": "Output audio file name",
+      "pattern": "^[\\w\\-. ]+\\.(wav|mp3)$"
+    },
+    "conversation": {
+      "type": "array",
+      "description": "Array of conversation messages",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Unique message ID",
+            "minimum": 1
+          },
+          "speaker": {
+            "type": "string",
+            "description": "Speaker's voice reference name",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text for generation",
+            "minLength": 1
+          }
+        },
+        "required": ["id", "speaker", "text"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["podcast_name", "filename", "conversation"],
+  "additionalProperties": false
+} 

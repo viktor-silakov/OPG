@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "fs-python"
+version = "0.1.0"
+description = ""
+authors = ["Viktar Silakou"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+torch = "2.7.0"
+torchvision = "0.22.0"
+torchaudio = "2.7.0"
+soundfile = "^0.12"
+
+# The git dependency will pull gradio and the required huggingface-hub itself
+fish-speech = { git = "https://github.com/fishaudio/fish-speech.git", branch = "main" }
+scipy = "^1.15.3"
+openai-whisper = "^20240930"
+loguru = "^0.7.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

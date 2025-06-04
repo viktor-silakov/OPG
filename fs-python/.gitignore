@@ -1,0 +1,114 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Poetry
+poetry.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# TTS Project specific
+# Generated audio files
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.m4a
+*.aac
+
+# Model files and checkpoints
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.bin
+
+# Voice references (optional - comment out if you want to track them)
+# voices/*.npy
+
+# Output directory
+output/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# Fish Speech repo (external dependency)
+# fish-speech/
+
+# Sample files (large audio files)
+samples/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Cache directory
+cache/ 

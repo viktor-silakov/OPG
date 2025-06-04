@@ -1,0 +1,31 @@
+{
+  "name": "podcast-generator",
+  "version": "1.0.0",
+  "packageManager": "yarn@1.22.0",
+  "description": "Podcast generation system with AI scripts and Fish Speech speech synthesis",
+  "scripts": {
+    "start": "concurrently \"npm run server\" \"npm run frontend\"",
+    "server": "cd backend && npm run server",
+    "frontend": "cd frontend && npm run dev",
+    "install-all": "npm run install-backend && npm run install-frontend",
+    "install-backend": "cd backend && npm install",
+    "install-frontend": "cd frontend && npm install",
+    "build": "cd frontend && npm run build"
+  },
+  "keywords": [
+    "podcast",
+    "ai",
+    "tts",
+    "fish-speech",
+    "typescript",
+    "react"
+  ],
+  "author": "Podcast Generator Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

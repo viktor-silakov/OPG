@@ -1,0 +1,164 @@
+#!/bin/bash
+
+# Script for creating .env example file
+
+echo "Creating .env example file in project root..."
+
+cat > .env.example << 'ENVEOF'
+# ============================================
+# AI API KEYS
+# ============================================
+GEMINI_API_KEY=your_gemini_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+
+# ============================================
+# GEMINI API PARAMETERS
+# ============================================
+
+# Model to use
+GEMINI_MODEL=gemini-2.0-flash
+# Alternatives: gemini-1.5-pro, gemini-1.5-flash, gemini-pro
+
+# Temperature (creativity) - from 0.0 to 2.0
+GEMINI_TEMPERATURE=0.7
+
+# Maximum number of tokens in response
+GEMINI_MAX_OUTPUT_TOKENS=65536
+
+# Top-p (nucleus sampling) - from 0.0 to 1.0
+GEMINI_TOP_P=0.95
+
+# Top-k sampling - number of best tokens
+GEMINI_TOP_K=40
+
+# Number of response variants to generate
+GEMINI_CANDIDATE_COUNT=1
+
+# Request timeout in milliseconds
+GEMINI_TIMEOUT=120000
+
+# Number of retry attempts on error
+GEMINI_RETRY_COUNT=3
+
+# Delay between retry attempts (ms)
+GEMINI_RETRY_DELAY=2000
+
+# ============================================
+# GEMINI SAFETY SETTINGS
+# ============================================
+
+# Levels: BLOCK_NONE, BLOCK_ONLY_HIGH, BLOCK_MEDIUM_AND_ABOVE, BLOCK_LOW_AND_ABOVE
+GEMINI_HARASSMENT_THRESHOLD=BLOCK_MEDIUM_AND_ABOVE
+GEMINI_HATE_SPEECH_THRESHOLD=BLOCK_MEDIUM_AND_ABOVE
+GEMINI_SEXUALLY_EXPLICIT_THRESHOLD=BLOCK_MEDIUM_AND_ABOVE
+GEMINI_DANGEROUS_CONTENT_THRESHOLD=BLOCK_MEDIUM_AND_ABOVE
+
+# ============================================
+# OPENAI API PARAMETERS (alternative AI)
+# ============================================
+
+# OpenAI model to use
+OPENAI_MODEL=gpt-4-turbo-preview
+
+# Temperature for OpenAI
+OPENAI_TEMPERATURE=0.7
+
+# Maximum number of tokens for OpenAI
+OPENAI_MAX_TOKENS=4096
+
+# ============================================
+# SERVER SETTINGS
+# ============================================
+
+# Server port
+PORT=3000
+
+# Number of concurrent AI requests
+CONCURRENT_REQUESTS=3
+
+# Maximum request size (in bytes)
+MAX_REQUEST_SIZE=50mb
+
+# ============================================
+# FISH SPEECH SETTINGS
+# ============================================
+
+# Fish Speech API URL
+FISH_SPEECH_URL=http://localhost:7860
+
+# Timeout for Fish Speech requests (ms)
+FISH_SPEECH_TIMEOUT=300000
+
+# Maximum number of attempts for Fish Speech
+FISH_SPEECH_RETRY_COUNT=2
+
+# ============================================
+# FILE SETTINGS
+# ============================================
+
+# Maximum lifetime of temporary files (ms)
+TEMP_FILE_TTL=3600000
+
+# Auto cleanup temporary files
+AUTO_CLEANUP_TEMP_FILES=true
+
+# Maximum size of uploaded files (MB)
+MAX_UPLOAD_SIZE=100
+
+# ============================================
+# LOGGING AND DEBUG
+# ============================================
+
+# Log level: debug, info, warn, error
+LOG_LEVEL=info
+
+# Enable detailed AI request logs
+DEBUG_AI_REQUESTS=false
+
+# Enable detailed WebSocket logs
+DEBUG_WEBSOCKET=false
+
+# Save logs to file
+SAVE_LOGS_TO_FILE=false
+
+# ============================================
+# CORS AND SECURITY
+# ============================================
+
+# Allowed origins for CORS (comma separated)
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# Enable HTTPS only cookies (for production)
+SECURE_COOKIES=false
+
+# Secret key for sessions (generate random string)
+SESSION_SECRET=your_random_session_secret_here
+
+# ============================================
+# PERFORMANCE
+# ============================================
+
+# Connection pool size for external APIs
+CONNECTION_POOL_SIZE=10
+
+# Enable AI response caching
+ENABLE_AI_CACHE=true
+
+# AI cache lifetime (seconds)
+AI_CACHE_TTL=1800
+
+# Maximum cache size (number of records)
+AI_CACHE_MAX_SIZE=1000
+
+# ============================================
+# FRONTEND SETTINGS
+# ============================================
+
+# URL for frontend (to connect to API)
+VITE_API_URL=http://localhost:3000
+ENVEOF
+
+echo "✅ Created .env.example file"
+echo "📋 Copy it to .env and configure for your needs:"
+echo "   cp .env.example .env"
+echo "   # Then edit the .env file" 
