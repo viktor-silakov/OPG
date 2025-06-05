@@ -20,7 +20,7 @@ async function main() {
   
   try {
     await waitForServersToLoad(CONCURRENT_REQUESTS);
-    console.log("🐟 fs-python is ready, starting audio generation.");
+    console.log("🐟 fs-python is ready, starting audio generation, concurrent requests: ", CONCURRENT_REQUESTS);
 
     // Check if there is data in environment variables
     let conversationData;

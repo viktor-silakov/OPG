@@ -30,21 +30,24 @@ export async function generateAudio(
     );
 
     const voiceFile = `../fs-python/voices/${speaker}.npy`;
-    const voiceTextFile = `../fs-python/voices/${speaker}.txt`;
 
     const checkpointPath = voiceSettings.checkpointPath 
 
     const args = [
       "run",
       "python",
-      "cli_tts.py",
-      text,
+      // "optimized_tts.py", 
+      // "cli_tts.py",
+      // "optimized_cli_tts.py",
+      "flash_optimized_cli.py",
+      `"${text.replace(/"/g, '\\"')}"`,
       "-o",
       absoluteFilePath,
       "--device",
       "mps",
       "--model-version",
       "1.5",
+      "--monitor",
       ...voiceArgs,
     ];
 

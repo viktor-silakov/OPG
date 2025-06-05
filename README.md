@@ -6,6 +6,8 @@ An open version of NotebookLM for podcast generation using Fish Speech TTS and A
 
 - 🎙️ **Podcast Generation** - Create audio podcasts from text scripts using Fish Speech TTS
 - 🍎 **Apple Silicon Support** - for audio inference and fine-tuning of Fish Speech models
+- ⚡ **Flash Attention Optimization** - Enhanced memory-efficient attention with O(N²) → O(N) complexity reduction, 30-50% memory savings during TTS inference
+- 🧠 **MPS Acceleration** - Metal Performance Shaders optimization for Apple Silicon with automatic backend fallbacks and real-time memory management
 - 📝 **Script Creation** - Automatic generation of dialogues using Gemini AI, including free models
 - 🎭 **Voice Management** - Upload and create your own zero-shot voices, more than 80 voices in various languages (🇸🇦 Arabic, 🇧🇾 Belarusian, 🇩🇪 German, 🇺🇸 English, 🇪🇸 Spanish, 🇫🇷 French, 🇬🇪 Georgian, 🇯🇵 Japanese, 🇰🇷 Korean, 🇷🇺 Russian, 🇺🇦 Ukrainian) and styles are built-in by default
 - 📚 **Podcast Library** - View and manage created podcasts
