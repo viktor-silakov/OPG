@@ -47,10 +47,11 @@ Before starting, make sure you have the following installed on your system:
 
 - **Git**: for repository management
 - **FFmpeg**: for audio processing and format conversion
+- **System Dependencies**: Required for Fish Speech compilation
 
   ```bash
   # Install via Homebrew
-  brew install ffmpeg
+  brew install ffmpeg cmake pkg-config protobuf sentencepiece
   ```
 
 ### AI Model Requirements
@@ -64,11 +65,14 @@ Before starting, make sure you have the following installed on your system:
 ### 1. Install Fish Speech (fs-python)
 
 ```bash
-# Install Fish Speech for voice generation
+# Navigate to Fish Speech directory
 cd fs-python
 
-# Install dependencies
+# Install Poetry dependencies
 poetry install
+
+# Set environment variables for compilation (macOS)
+export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 # Install Fish Speech in editable mode
 poetry run pip install -e ./fish-speech
@@ -76,10 +80,26 @@ poetry run pip install -e ./fish-speech
 # Additional dependencies for fine-tuning (optional)
 poetry run pip install librosa soundfile whisper tqdm yt-dlp
 
+# Test installation
+poetry run python -c "import fish_speech; print('Fish Speech successfully installed!')"
+
 cd ..
 ```
 
-**Detailed documentation:** See [fs-python/README.md](./fs-python/README.md) for detailed installation and usage instructions for Fish Speech.
+#### Troubleshooting Fish Speech Installation
+
+If you encounter compilation errors:
+
+1. **sentencepiece build failure**: Install system dependencies first
+   ```bash
+   brew install cmake pkg-config protobuf sentencepiece
+   export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH"
+   ```
+
+2. **CMake version errors**: Update CMake to latest version
+   ```bash
+   brew upgrade cmake
+   ```
 
 ### 2. Install Dependencies
 
@@ -96,6 +116,12 @@ cd frontend && yarn install && cd ..
 ```
 
 ### 3. Environment Variables Setup
+
+Create a `.env` file in the root directory.
+
+```
+touch .env
+```
 
 Set `GEMINI_API_KEY` in .env file and other variables as needed.
 

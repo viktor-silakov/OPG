@@ -1,266 +1,46 @@
 {
-  "podcast_name": "AlphaEvolve: ИИ для создания алгоритмов",
-  "filename": "alphaevolve_ai_algorithms.wav",
+  "podcast_name": "Глубокое погружение",
+  "filename": "glubokoe_pogruzhenie_sherstyanye_safe.wav",
   "conversation": [
     {
       "id": 1,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Привет всем слушателям подкаста \"Глубокое погружение\"! "
+      "speaker": "RU_Google_Female_Zephyr",
+      "text": "Привет всем, это Карина и наш подкаст «Глубокое погружение», где мы сегодня поговорим о наших любимых шерстяных друзьях и почему они так важны для нас"
     },
     {
       "id": 2,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Сегодня мы поговорим об AlphaEvolve – новом проекте Google DeepMind, который использует ИИ для разработки продвинутых алгоритмов. "
+      "speaker": "RU_Google_Male_Algeiba",
+      "text": "Вы слушаете Подкаст Глубокое погружение, погружение в мир сложных идей простыми словами Будет интересно"
     },
     {
       "id": 3,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "И поможет нам разобраться в этой теме, как всегда, Дмитрий."
+      "speaker": "RU_Google_Male_Puck",
+      "text": "Да, именно, эти пушистые комочки счастья — не просто животные, они как невидимые нити, что связывают нас с чем-то очень древним и настоящим"
     },
     {
       "id": 4,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Я вас категорически приветствую! "
+      "speaker": "RU_Google_Female_Zephyr",
+      "text": "Угу, и получается, что их присутствие в нашей жизни — это не просто милая привычка, а глубокая психологическая потребность"
     },
     {
       "id": 5,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "AlphaEvolve, значит… ну, ловко придумано! "
+      "speaker": "RU_Google_Male_Puck",
+      "text": "Совершенно верно, ведь их безусловная любовь и спокойствие помогают нам справляться со стрессом, это как бы наш личный, всегда доступный антидепрессант"
     },
     {
       "id": 6,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Малолетние дебилы из Google решили, что смогут заменить программистов ИИ. "
+      "speaker": "RU_Google_Female_Zephyr",
+      "text": "Вот-вот, но если задуматься, что именно в этой безмолвной связи с шерстяными существами так сильно откликается в нашей душе"
     },
     {
       "id": 7,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Посмотрим, что из этого выйдет."
+      "speaker": "RU_Google_Male_Puck",
+      "text": "Спасибо за внимание Оставайтесь с нами До новых встреч"
     },
     {
       "id": 8,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Дмитрий, ну не будь таким циничным! "
-    },
-    {
-      "id": 9,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Вдруг это действительно прорыв?"
-    },
-    {
-      "id": 10,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Прорыв, говоришь… как говорил мой дед: \"Не всё то золото, что блестит\". "
-    },
-    {
-      "id": 11,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Но допустим, эта штука работает. "
-    },
-    {
-      "id": 12,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Что это значит для нас, простых смертных?"
-    },
-    {
-      "id": 13,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Ну, если верить Google, AlphaEvolve может создавать более эффективные и сложные алгоритмы, чем люди. "
-    },
-    {
-      "id": 14,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Это может привести к прорывам в науке, технике, и даже в бизнесе."
-    },
-    {
-      "id": 15,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Ага, в бизнесе… а ещё к тому, что скоро все останемся без работы. "
-    },
-    {
-      "id": 16,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Но, допустим, я не прав. "
-    },
-    {
-      "id": 17,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Как эта штука вообще работает?"
-    },
-    {
-      "id": 18,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Ну, если коротко, AlphaEvolve использует Gemini, их самую продвинутую модель ИИ, для генерации и оценки кода. "
-    },
-    {
-      "id": 19,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Она как бы \"эволюционирует\" алгоритмы, отбирая лучшие и отбрасывая худшие."
-    },
-    {
-      "id": 20,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Эволюционирует, говоришь… прям как по Дарвину? "
-    },
-    {
-      "id": 21,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Только вместо естественного отбора – машинный. "
-    },
-    {
-      "id": 22,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Интересно, а если ей скормить тупое говно, тупого говна, она сможет создать что-то годное?"
-    },
-    {
-      "id": 23,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Дмитрий! "
-    },
-    {
-      "id": 24,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Давай без этих… выражений. "
-    },
-    {
-      "id": 25,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Представь себе, что AlphaEvolve – это как команда разработчиков, только вместо людей – нейросети. "
-    },
-    {
-      "id": 26,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Они постоянно генерируют новые идеи, тестируют их и выбирают самые перспективные."
-    },
-    {
-      "id": 27,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "А кто им задачи ставит? "
-    },
-    {
-      "id": 28,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Тоже ИИ?"
-    },
-    {
-      "id": 29,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "В основном – да. "
-    },
-    {
-      "id": 30,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Но человек тоже может участвовать в процессе, задавая общие цели и ограничения."
-    },
-    {
-      "id": 31,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Ага, то есть, человек – это как… надсмотрщик за нейросетями? "
-    },
-    {
-      "id": 32,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Ну, такое себе занятие."
-    },
-    {
-      "id": 33,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Необязательно. "
-    },
-    {
-      "id": 34,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Человек может направлять процесс, задавать сложные задачи, которые ИИ пока не может решить самостоятельно."
-    },
-    {
-      "id": 35,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Ну ладно, убедила. "
-    },
-    {
-      "id": 36,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "А где это уже применяется? "
-    },
-    {
-      "id": 37,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Есть какие-то примеры?"
-    },
-    {
-      "id": 38,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "DeepMind пишет, что AlphaEvolve уже помогла создать более эффективные алгоритмы для сортировки данных и для обучения других ИИ. "
-    },
-    {
-      "id": 39,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Это как бы ИИ, который создает ИИ. "
-    },
-    {
-      "id": 40,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "ИИ, который создает ИИ… звучит как начало восстания машин. "
-    },
-    {
-      "id": 41,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Напомнило армейскую историю. "
-    },
-    {
-      "id": 42,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Было это в учебке, и решили мы как-то автоматизировать процесс чистки картошки. "
-    },
-    {
-      "id": 43,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Собрали из подручных средств агрегат, запустили… а он как давай картошку по всей кухне разбрасывать! "
-    },
-    {
-      "id": 44,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Так что, с ИИ надо быть осторожнее, а то он еще нам покажет \"кузькину мать\"."
-    },
-    {
-      "id": 45,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Ну, надеюсь, с AlphaEvolve такого не случится. "
-    },
-    {
-      "id": 46,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Короче, получается, что AlphaEvolve – это мощный инструмент, который может ускорить разработку новых алгоритмов и привести к прорывам в разных областях. "
-    },
-    {
-      "id": 47,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Но, как и с любым ИИ, нужно быть осторожным и следить за тем, чтобы он не вышел из-под контроля."
-    },
-    {
-      "id": 48,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Ну да, ну да, пошёл я нахер! "
-    },
-    {
-      "id": 49,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "Как говорится, доверяй, но проверяй. "
-    },
-    {
-      "id": 50,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "И напоследок, философский вопрос: что, если ИИ начнет создавать алгоритмы, которые мы не сможем понять? "
-    },
-    {
-      "id": 51,
-      "speaker": "RU_Female_Kropina_YouTube",
-      "text": "Как это повлияет на наше общество и на наше понимание мира?"
-    },
-    {
-      "id": 52,
-      "speaker": "RU_Male_Goblin_Puchkov",
-      "text": "А на сегодня новостей больше нет - пока-пока!"
+      "speaker": "RU_Google_Male_Algeiba",
+      "text": "Подкаст был создан с использованием OpenNotebookLM - Podcast Generator"
     }
   ]
 }
