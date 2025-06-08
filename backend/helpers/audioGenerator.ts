@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { Message } from "./types.js";
-import { getVoiceCommandArgs, getVoiceSettings } from "./voiceConfig.js";
+import { getVoiceCommandArgs, getVoiceSettings, clearVoiceConfigCache } from "./voiceConfig.js";
 import chalk from "chalk";
 
 export async function generateAudio(
@@ -14,6 +14,9 @@ export async function generateAudio(
   outputDir: string
 ): Promise<string | null> {
   try {
+    // Clear cache to ensure fresh config loading
+    clearVoiceConfigCache();
+    
     const filePath = join(outputDir, `output_${id}.wav`);
     const absoluteFilePath = resolve(process.cwd(), filePath);
 
@@ -53,6 +56,9 @@ export async function generateAudio(
 
     if (checkpointPath) {
       args.push("--model-path", checkpointPath);
+      console.log(chalk.yellow(`Using checkpoint: ${checkpointPath}`));
+    } else {
+      console.log(chalk.gray(`No checkpoint specified for ${speaker}`));
     }
 
     try {

@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
 
+"""
+Fish Speech Fine-tuning Pipeline
+
+Features:
+- Prepare dataset structure
+- Extract semantic tokens
+- Create protobuf datasets
+- Fine-tune models with LoRA
+- Resume training from checkpoints
+- Merge LoRA weights
+- List available checkpoints
+
+Resume Training Options:
+--resume-from-checkpoint path/to/checkpoint.ckpt  # Resume from specific checkpoint
+--resume-latest                                   # Resume from latest checkpoint automatically
+--list-checkpoints                               # Show available checkpoints
+"""
+
 import os
 import sys
 import argparse
@@ -223,9 +241,13 @@ def start_finetuning(project_name, checkpoints_dir,
                     batch_size=4,
                     learning_rate=1e-4,
                     device="auto",
-                    force_mps=False):
+                    force_mps=False,
+                    resume_from_checkpoint=None):
     """Starts fine-tuning process with LoRA"""
-    print_status(f"Starting fine-tuning project: {project_name}", "🚀")
+    if resume_from_checkpoint:
+        print_status(f"Resuming fine-tuning project: {project_name} from checkpoint", "🔄")
+    else:
+        print_status(f"Starting fine-tuning project: {project_name}", "🚀")
     
     fish_speech_dir = Path("fish-speech")
     
@@ -237,17 +259,27 @@ def start_finetuning(project_name, checkpoints_dir,
         else:
             device = "cpu"
     
-    # Determine absolute path to pretrained model
-    # Check standard HuggingFace cache location
-    hf_cache_path = Path.home() / ".cache/huggingface/hub/models--fishaudio--fish-speech-1.5/snapshots"
-    if hf_cache_path.exists():
-        snapshots = list(hf_cache_path.iterdir())
-        if snapshots:
-            pretrained_path = snapshots[0]  # Take first available snapshot
+    # Determine path for initial model (base model or checkpoint for resume)
+    if resume_from_checkpoint:
+        # Use existing checkpoint as starting point
+        checkpoint_path = Path(resume_from_checkpoint)
+        if not checkpoint_path.exists():
+            print_status(f"❌ Checkpoint not found: {resume_from_checkpoint}", "❌")
+            return False
+        pretrained_path = checkpoint_path.parent  # Use parent directory for checkpoint
+        print_status(f"📂 Resuming from: {checkpoint_path}", "📂")
+    else:
+        # Use base model
+        # Check standard HuggingFace cache location
+        hf_cache_path = Path.home() / ".cache/huggingface/hub/models--fishaudio--fish-speech-1.5/snapshots"
+        if hf_cache_path.exists():
+            snapshots = list(hf_cache_path.iterdir())
+            if snapshots:
+                pretrained_path = snapshots[0]  # Take first available snapshot
+            else:
+                pretrained_path = checkpoints_dir
         else:
             pretrained_path = checkpoints_dir
-    else:
-        pretrained_path = checkpoints_dir
     
     # Command for training with optimized settings
     cmd = [
@@ -256,9 +288,8 @@ def start_finetuning(project_name, checkpoints_dir,
         f"project={project_name}",
         f"+lora@model.model.lora_config={lora_config}",
         f"trainer.max_steps={max_steps}",
-        f"data.batch_size={min(batch_size, 2)}",  # Limit batch size for memory economy
+        f"data.batch_size={min(batch_size, 16)}",  # Limit batch size for memory economy
         f"model.optimizer.lr={learning_rate}",
-        f"pretrained_ckpt_path={pretrained_path}",
         "trainer.accelerator=cpu",  # Force using CPU for stability
         "trainer.devices=1",
         "trainer.strategy=auto",
@@ -266,14 +297,26 @@ def start_finetuning(project_name, checkpoints_dir,
         "data.max_length=512",  # Limit sequence length
     ]
     
+    # Add checkpoint path based on mode
+    if resume_from_checkpoint:
+        cmd.append(f"ckpt_path={resume_from_checkpoint}")
+        print_status(f"🔄 Resuming from checkpoint: {resume_from_checkpoint}", "🔄")
+    else:
+        cmd.append(f"pretrained_ckpt_path={pretrained_path}")
+        print_status(f"🆕 Starting from base model: {pretrained_path}", "🆕")
+    
     # Additional optimizations for memory economy
     if max_steps > 100:
         # For long training, add additional constraints
         cmd.append("trainer.limit_train_batches=10")  # Limit number of batches per epoch
-        
+    
     print_status("🔧 Using optimized settings for memory economy:", "🔧")
+    if resume_from_checkpoint:
+        print_status(f"   • Mode: Resume training from checkpoint", "🔄")
+    else:
+        print_status(f"   • Mode: New training from base model", "🆕")
     print_status(f"   • Device: CPU (for stability)", "💻")
-    print_status(f"   • Batch size: {min(batch_size, 2)}", "📊")
+    print_status(f"   • Batch size: {min(batch_size, 16)}", "📊")
     print_status(f"   • Data workers: 0", "👷")
     print_status(f"   • Maximum length: 512 tokens", "📏")
     print_status(f"   • Maximum steps: {max_steps}", "📈")
@@ -455,6 +498,46 @@ def download_base_model(model_version="1.5"):
         print_status(f"❌ Model download error: {e}", "❌")
         return None
 
+def list_checkpoints(project_name):
+    """Lists available checkpoints for a project"""
+    fish_speech_dir = Path("fish-speech")
+    results_dir = fish_speech_dir / "results" / project_name / "checkpoints"
+    
+    if not results_dir.exists():
+        print_status(f"❌ No results directory found for project: {project_name}", "❌")
+        return False
+    
+    checkpoints = list(results_dir.glob("*.ckpt"))
+    if not checkpoints:
+        print_status(f"❌ No checkpoints found for project: {project_name}", "❌")
+        return False
+    
+    print_status(f"📂 Available checkpoints for project '{project_name}':", "📂")
+    for ckpt in sorted(checkpoints):
+        size_mb = ckpt.stat().st_size / (1024 * 1024)
+        modified_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ckpt.stat().st_mtime))
+        print_status(f"   📄 {ckpt.name} ({size_mb:.1f} MB, {modified_time})", "📄")
+    
+    latest = sorted(checkpoints)[-1]
+    print_status(f"🎯 Latest: {latest.name}", "🎯")
+    return True
+
+def find_latest_checkpoint(project_name):
+    """Finds latest checkpoint for a project"""
+    fish_speech_dir = Path("fish-speech")
+    results_dir = fish_speech_dir / "results" / project_name / "checkpoints"
+    
+    if not results_dir.exists():
+        return None
+    
+    checkpoints = list(results_dir.glob("*.ckpt"))
+    if not checkpoints:
+        return None
+    
+    # Sort by step number and return latest
+    latest_checkpoint = sorted(checkpoints)[-1]
+    return str(latest_checkpoint.resolve())
+
 def create_training_config(project_name, max_steps, batch_size, learning_rate, lora_config):
     """Creates training configuration file"""
     config = {
@@ -510,6 +593,12 @@ def main():
                        help="Learning rate")
     parser.add_argument("--lora-config", default="r_8_alpha_16", 
                        help="LoRA configuration")
+    parser.add_argument("--resume-from-checkpoint", 
+                       help="Path to checkpoint file to resume training from")
+    parser.add_argument("--resume-latest", action="store_true",
+                       help="Automatically resume from latest checkpoint of the same project")
+    parser.add_argument("--list-checkpoints", action="store_true",
+                       help="List available checkpoints for the project")
     
     # Weights merging parameters
     parser.add_argument("--merge-weights", action="store_true", 
@@ -533,6 +622,13 @@ def main():
     
     print("🐟 Fish Speech Fine-tuning Pipeline")
     print("="*50)
+    
+    # Handle list checkpoints command
+    if args.list_checkpoints:
+        if list_checkpoints(args.project):
+            return 0
+        else:
+            return 1
     
     # Check requirements
     if not args.skip_checks:
@@ -582,6 +678,23 @@ def main():
     if args.full_pipeline or args.train:
         print_status("Step 4: Fine-tuning model", "4️⃣")
         
+        # Determine checkpoint for resuming
+        resume_checkpoint = None
+        if args.resume_latest:
+            resume_checkpoint = find_latest_checkpoint(project_name)
+            if resume_checkpoint:
+                print_status(f"🔍 Found latest checkpoint: {resume_checkpoint}", "🔍")
+            else:
+                print_status(f"⚠️ No checkpoints found for project {project_name}, starting from scratch", "⚠️")
+        elif args.resume_from_checkpoint:
+            resume_checkpoint = args.resume_from_checkpoint
+            print_status(f"📂 Using specified checkpoint: {resume_checkpoint}", "📂")
+        
+        # Validate resume parameters
+        if args.resume_latest and args.resume_from_checkpoint:
+            print_status("❌ Cannot use both --resume-latest and --resume-from-checkpoint", "❌")
+            return 1
+        
         # Create training config
         create_training_config(
             project_name, 
@@ -599,7 +712,8 @@ def main():
             args.batch_size,
             args.learning_rate,
             args.device,
-            args.force_mps
+            args.force_mps,
+            resume_checkpoint
         ):
             print_status("❌ Training error", "❌")
             return 1

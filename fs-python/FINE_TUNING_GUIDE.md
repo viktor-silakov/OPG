@@ -1,69 +1,72 @@
 # Fish Speech Fine-tuning Guide
 
-Полное руководство по fine-tuning модели Fish Speech для создания кастомных голосов.
+Complete guide for fine-tuning Fish Speech model to create custom voices.
 
-## Содержание
+## Contents
 
-1. [Обзор процесса](#обзор-процесса)
-2. [Требования](#требования)
-3. [Подготовка данных](#подготовка-данных)
-4. [Fine-tuning модели](#fine-tuning-модели)
-5. [Использование модели](#использование-модели)
-6. [Примеры](#примеры)
-7. [Troubleshooting](#troubleshooting)
+1. [Process Overview](#process-overview)
+2. [Requirements](#requirements)
+3. [Data Preparation](#data-preparation)
+4. [Model Fine-tuning](#model-fine-tuning)
+5. [Resume Training](#resume-training)
+6. [Using the Model](#using-the-model)
+7. [Examples](#examples)
+8. [Troubleshooting](#troubleshooting)
 
-## Обзор процесса
+## Process Overview
 
-Fine-tuning Fish Speech состоит из 5 основных этапов:
+Fish Speech fine-tuning consists of 5 main stages:
 
-1. **Подготовка данных** - конвертация аудио в нужный формат
-2. **Извлечение семантических токенов** - кодирование аудио в токены
-3. **Создание protobuf датасета** - упаковка данных для обучения
-4. **Fine-tuning с LoRA** - адаптация модели под ваши данные
-5. **Объединение весов** - создание финальной модели
+1. **Data Preparation** - converting audio to the required format
+2. **Semantic Token Extraction** - encoding audio into tokens
+3. **Protobuf Dataset Creation** - packaging data for training
+4. **LoRA Fine-tuning** - adapting the model to your data
+5. **Weight Merging** - creating the final model
 
-## Требования
+## Requirements
 
-### Системные требования
+### System Requirements
 
 - **Python 3.10+**
-- **GPU**: минимум 8GB VRAM (для fine-tuning), 4GB (для inference)
-- **RAM**: минимум 16GB
-- **Место на диске**: 10-20GB (зависит от размера датасета)
-- **Время**: 1-4 часа (зависит от размера датасета и GPU)
+- **GPU**: minimum 8GB VRAM (for fine-tuning), 4GB (for inference)
+- **RAM**: minimum 16GB
+- **Disk Space**: 10-20GB (depends on dataset size)
+- **Time**: 1-4 hours (depends on dataset size and GPU)
 
-### Зависимости
+### Dependencies
 
 ```bash
-# Основные зависимости для подготовки данных
+# Main dependencies for data preparation
 poetry run pip install librosa soundfile whisper tqdm yt-dlp
 
-# Для загрузки видео с YouTube (опционально)
+# For downloading videos from YouTube (optional)
 pip install yt-dlp
 ```
 
-### Качество данных
+### Data Quality
 
-- **Минимум**: 10-30 минут аудио высокого качества
-- **Рекомендуется**: 30-60 минут разнообразного контента
-- **Формат**: 44.1kHz, mono, WAV/MP3/FLAC
-- **Чистота**: минимум фонового шума, четкая речь
-- **Текст**: точная транскрипция для каждого аудио файла
+- **Minimum**: 10-30 minutes of high-quality audio
+- **Recommended**: 30-60 minutes of diverse content
+- **Format**: 44.1kHz, mono, WAV/MP3/FLAC
+- **Clarity**: minimal background noise, clear speech
+- **Text**: accurate transcription for each audio file
 
-## Подготовка данных
+## Data Preparation
 
-### Автоматическая подготовка
+### Automatic Preparation
 
 ```bash
-# Обработка локальной папки с аудио
+cd fs-python
+
+# Processing local audio folder
 poetry run python prepare_dataset.py \
-  --input /path/to/raw/audio \
-  --output training_data/my_voice \
+  --input samples \
+  --output training_data/note_lm \
   --normalize \
   --split-long \
   --auto-transcribe
 
-# Загрузка и обработка с YouTube (автоматическая сегментация на 10с)
+# Download and process from YouTube (automatic 10s segmentation)
 poetry run python prepare_dataset.py \
   --input "https://youtube.com/watch?v=VIDEO_ID" \
   --output training_data/youtube_voice \
@@ -73,7 +76,7 @@ poetry run python prepare_dataset.py \
   --whisper-model medium \
   --segment-duration 10
 
-# Кастомная длительность сегментов (например, 15 секунд)
+# Custom segment duration (e.g., 15 seconds)
 poetry run python prepare_dataset.py \
   --input "https://youtube.com/watch?v=VIDEO_ID" \
   --output training_data/youtube_voice \
@@ -83,7 +86,7 @@ poetry run python prepare_dataset.py \
   --whisper-model medium \
   --segment-duration 15
 
-# Обработка только первых 20 минут видео
+# Process only first 20 minutes of video
 poetry run python prepare_dataset.py \
   --input "https://youtube.com/watch?v=VIDEO_ID" \
   --output training_data/youtube_voice \
@@ -93,7 +96,7 @@ poetry run python prepare_dataset.py \
   --whisper-model medium \
   --max-duration 20
 
-# Комбинация: первые 30 минут + сегменты по 12 секунд
+# Combination: first 30 minutes + 12-second segments
 poetry run python prepare_dataset.py \
   --input "https://youtube.com/watch?v=VIDEO_ID" \
   --output training_data/youtube_voice \
@@ -105,9 +108,9 @@ poetry run python prepare_dataset.py \
   --max-duration 30
 ```
 
-### Ручная подготовка
+### Manual Preparation
 
-Если у вас уже есть подготовленные данные, организуйте их так:
+If you already have prepared data, organize it like this:
 
 ```
 training_data/
@@ -121,17 +124,17 @@ training_data/
     └── dataset_summary.json
 ```
 
-Где:
-- `.wav` файлы содержат аудио сегменты (желательно 10-30 секунд)
-- `.lab` файлы содержат точную транскрипцию аудио
-- Имена файлов должны совпадать (кроме расширения)
+Where:
+- `.wav` files contain audio segments (preferably 10-30 seconds)
+- `.lab` files contain accurate audio transcription
+- Filenames must match (except extension)
 
-## Fine-tuning модели
+## Model Fine-tuning
 
-### Полный автоматический пайплайн
+### Full Automatic Pipeline
 
 ```bash
-# Запуск полного процесса обучения
+# Run complete training process
 poetry run python finetune_tts.py \
   --project my_custom_voice \
   --data-dir training_data/my_voice \
@@ -142,23 +145,23 @@ poetry run python finetune_tts.py \
   --learning-rate 1e-4
 ```
 
-### Пошаговый процесс
+### Step-by-Step Process
 
 ```bash
-# Шаг 1: Подготовка данных (если не сделано)
+# Step 1: Data preparation (if not done)
 poetry run python finetune_tts.py \
   --project my_custom_voice \
   --data-dir raw_audio/ \
   --prepare-data
 
-# Шаг 2: Извлечение семантических токенов
+# Step 2: Extract semantic tokens
 poetry run python finetune_tts.py \
   --project my_custom_voice \
   --data-dir training_data/my_custom_voice \
   --extract-tokens \
   --batch-size-extract 16
 
-# Шаг 3: Обучение модели
+# Step 3: Train model
 poetry run python finetune_tts.py \
   --project my_custom_voice \
   --data-dir training_data/my_custom_voice \
@@ -167,42 +170,47 @@ poetry run python finetune_tts.py \
   --batch-size 2 \
   --learning-rate 5e-5
 
-# Шаг 4: Объединение весов
+# Step 4: Merge weights
 poetry run python finetune_tts.py \
   --project my_custom_voice \
   --merge-weights \
   --data-dir training_data/my_custom_voice
+
+poetry run python finetune_tts.py \
+  --project note_lm_step2 \
+  --merge-weights \
+  --data-dir training_data/note_lm
 ```
 
-### Безопасные параметры обучения
+### Safe Training Parameters
 
-⚠️ **Важно**: Неправильные параметры могут привести к переобучению или нестабильности модели!
+⚠️ **Important**: Incorrect parameters can lead to overfitting or model instability!
 
-| Параметр | "Безопасное" значение | Комментарий |
-|----------|----------------------|-------------|
-| **VRAM** | ≥ 8 ГБ для fine-tune | Проверено в официальной документации |
-| **batch_size** | 2-4 (при 8 ГБ) | С учётом gradient_accumulation_steps легко увеличить «логический» batch |
-| **learning_rate** | 1e-5 – 5e-5 | Более высокий LR даёт шум / «провал» после 300 шагов |
-| **max_steps** | 100-300 | Хватает, чтобы модель «подхватила» интонацию; дальше — риск переобучения |
-| **LoRA rank / α** | r_8_alpha_16 | Предустановленная конфигурация в гайде |
+| Parameter | "Safe" Value | Comment |
+|-----------|--------------|---------|
+| **VRAM** | ≥ 8 GB for fine-tune | Verified in official documentation |
+| **batch_size** | 2-4 (with 8 GB) | With gradient_accumulation_steps easily increase "logical" batch |
+| **learning_rate** | 1e-5 – 5e-5 | Higher LR causes noise / "collapse" after 300 steps |
+| **max_steps** | 100-300 | Enough for model to "catch" intonation; further — overfitting risk |
+| **LoRA rank / α** | r_8_alpha_16 | Preset configuration in guide |
 
-### ⚠️ Важные ограничения Fine-tuning
+### ⚠️ Important Fine-tuning Limitations
 
-**По умолчанию fine-tune обучает произношение, но не тембр.**
+**By default, fine-tune trains pronunciation, but not timbre.**
 
-- **Для тембра нужно**: больше шагов (≈ 500-1000) + разнообразные промпты
-- **Риск**: без этого голос «поплывёт» - может стать нестабильным или неестественным
-- **Рекомендация**: начинайте с 100-300 шагов для проверки качества, затем увеличивайте при необходимости
+- **For timbre need**: more steps (≈ 500-1000) + diverse prompts
+- **Risk**: without this, voice may "drift" - become unstable or unnatural
+- **Recommendation**: start with 100-300 steps to check quality, then increase if needed
 
-**Признаки переобучения:**
-- Голос становится роботизированным
-- Появляются артефакты и шумы
-- Модель теряет естественность речи
-- Loss перестаёт снижаться или начинает расти
+**Signs of Overfitting:**
+- Voice becomes robotic
+- Artifacts and noise appear
+- Model loses speech naturalness
+- Loss stops decreasing or starts growing
 
-### Стратегии обучения для разных целей
+### Training Strategies for Different Goals
 
-#### 🎯 Для изучения произношения (быстро и безопасно)
+#### 🎯 For Learning Pronunciation (fast and safe)
 ```bash
 poetry run python finetune_tts.py \
   --project quick_pronunciation \
@@ -212,11 +220,11 @@ poetry run python finetune_tts.py \
   --batch-size 2 \
   --learning-rate 2e-5
 ```
-**Результат**: Модель научится базовому произношению за 15-30 минут
+**Result**: Model learns basic pronunciation in 15-30 minutes
 
-#### 🎤 Для захвата тембра голоса (медленно, требует осторожности)
+#### 🎤 For Capturing Voice Timbre (slow, requires caution)
 ```bash
-# Первый этап: базовое обучение
+# First stage: basic training
 poetry run python finetune_tts.py \
   --project voice_timbre_stage1 \
   --data-dir training_data/my_voice \
@@ -225,7 +233,7 @@ poetry run python finetune_tts.py \
   --batch-size 2 \
   --learning-rate 2e-5
 
-# Второй этап: тонкая настройка тембра
+# Second stage: fine-tune timbre
 poetry run python finetune_tts.py \
   --project voice_timbre_stage2 \
   --data-dir training_data/my_voice \
@@ -235,59 +243,250 @@ poetry run python finetune_tts.py \
   --learning-rate 1e-5 \
   --checkpoint-path results/voice_timbre_stage1/checkpoints/
 ```
-**Результат**: Более точное воспроизведение тембра, но риск переобучения
+**Result**: More accurate timbre reproduction, but overfitting risk
 
-## Использование модели
+## Resume Training
 
-### После завершения fine-tuning
+### 🚀 Resume Training Features
 
-Обученная модель будет сохранена в:
+Now you can:
+- ✅ **Continue training** from any checkpoint
+- ✅ **Automatically find** the latest checkpoint
+- ✅ **View a list** of all available checkpoints
+- ✅ **Flexibly manage** the training process
+
+### 📂 Viewing Available Checkpoints
+
+View all available checkpoints for a project:
+
+```bash
+poetry run python finetune_tts.py \
+  --project note_lm_step2 \
+  --data-dir training_data/note_lm \
+  --list-checkpoints
+```
+
+**Example output:**
+```
+📂 Available checkpoints for project 'note_lm_step2':
+📄 step_000000100.ckpt (71.0 MB, 2025-06-08 07:30:28)
+📄 step_000000200.ckpt (71.0 MB, 2025-06-08 08:28:52)
+🎯 Latest: step_000000200.ckpt
+```
+
+### 🔄 Resuming Training
+
+#### 1. Automatically from Latest Checkpoint
+
+```bash
+poetry run python finetune_tts.py \
+  --project note_lm_step3 \
+  --data-dir training_data/note_lm \
+  --train \
+  --max-steps 300 \
+  --batch-size 8 \
+  --learning-rate 1.2e-5 \
+  --resume-latest
+```
+
+#### 2. From Specific Checkpoint
+
+```bash
+poetry run python finetune_tts.py \
+  --project note_lm_step3 \
+  --data-dir training_data/note_lm \
+  --train \
+  --max-steps 300 \
+  --batch-size 8 \
+  --learning-rate 1.2e-5 \
+  --resume-from-checkpoint fish-speech/results/note_lm_step2/checkpoints/step_000000100.ckpt
+```
+
+### 💡 Recommended Training Scenarios
+
+#### Gradual Training with Increasing Learning Rate
+
+```bash
+# Stage 1: Careful start
+poetry run python finetune_tts.py \
+  --project note_lm_stage1 \
+  --data-dir training_data/note_lm \
+  --train \
+  --max-steps 200 \
+  --batch-size 4 \
+  --learning-rate 5e-6
+
+# Stage 2: Increase intensity
+poetry run python finetune_tts.py \
+  --project note_lm_stage2 \
+  --data-dir training_data/note_lm \
+  --train \
+  --max-steps 300 \
+  --batch-size 8 \
+  --learning-rate 1e-5 \
+  --resume-latest
+
+# Stage 3: Final fine-tuning
+poetry run python finetune_tts.py \
+  --project note_lm_final \
+  --data-dir training_data/note_lm \
+  --train \
+  --max-steps 200 \
+  --batch-size 8 \
+  --learning-rate 8e-6 \
+  --resume-latest
+```
+
+#### Experimenting with Hyperparameters
+
+```bash
+# Check available checkpoints
+poetry run python finetune_tts.py \
+  --project note_lm_base \
+  --data-dir training_data/note_lm \
+  --list-checkpoints
+
+# Experiment with different learning rates
+poetry run python finetune_tts.py \
+  --project note_lm_exp1 \
+  --data-dir training_data/note_lm \
+  --train \
+  --max-steps 150 \
+  --batch-size 6 \
+  --learning-rate 1.5e-5 \
+  --resume-from-checkpoint fish-speech/results/note_lm_base/checkpoints/step_000000100.ckpt
+
+# Parallel experiment with other parameters
+poetry run python finetune_tts.py \
+  --project note_lm_exp2 \
+  --data-dir training_data/note_lm \
+  --train \
+  --max-steps 150 \
+  --batch-size 4 \
+  --learning-rate 2e-5 \
+  --resume-from-checkpoint fish-speech/results/note_lm_base/checkpoints/step_000000100.ckpt
+```
+
+### ⚠️ Important Notes
+
+#### 1. Project Names
+- **Use different names** when continuing training
+- Example: `note_lm_step1` → `note_lm_step2` → `note_lm_final`
+
+#### 2. Learning Rate
+- When resuming training, you can often **increase the learning rate**
+- Start with conservative values and gradually increase
+
+#### 3. Validation
+- **Test the model** after each training stage
+- Save checkpoints with good results
+
+### 🎯 Practical Example for Your Data
+
+Based on your previous training log:
+
+```bash
+# 1. Continue with higher learning rate
+poetry run python finetune_tts.py \
+  --project note_lm_improved \
+  --data-dir training_data/note_lm \
+  --train \
+  --max-steps 250 \
+  --batch-size 8 \
+  --learning-rate 1.2e-5 \
+  --resume-latest
+
+# 2. If all goes well - another stage
+poetry run python finetune_tts.py \
+  --project note_lm_final \
+  --data-dir training_data/note_lm \
+  --train \
+  --max-steps 200 \
+  --batch-size 8 \
+  --learning-rate 8e-6 \
+  --resume-latest
+```
+
+### 🔧 Troubleshooting Resume Training
+
+#### Checkpoint Not Found
+```bash
+# Check available checkpoints
+poetry run python finetune_tts.py \
+  --project your_project \
+  --data-dir training_data/note_lm \
+  --list-checkpoints
+```
+
+#### Parameter Errors
+- Cannot use `--resume-latest` and `--resume-from-checkpoint` simultaneously
+- Ensure the checkpoint path exists
+
+#### Hallucinations After Resume Training
+- Reduce learning rate by half
+- Use an earlier checkpoint
+- Reduce the number of training steps
+
+### 📈 Progress Monitoring
+
+Monitor these metrics:
+- **Loss should decrease** (but slowly)
+- **Accuracy should increase** (but gradually)
+- **Validation should be close to train** (no overfitting)
+
+Good progress: loss decreases by 0.1-0.3 over 200-300 steps.
+
+## Using the Model
+
+### After Fine-tuning Completion
+
+The trained model will be saved in:
 ```
 checkpoints/my_custom_voice-merged/
-├── model.pth              # Основная модель (~1.2GB)
-├── tokenizer.tiktoken     # Токенизатор (~1.6MB)
-├── config.json            # Конфигурация модели
-└── special_tokens.json    # Специальные токены
+├── model.pth              # Main model (~1.2GB)
+├── tokenizer.tiktoken     # Tokenizer (~1.6MB)
+├── config.json            # Model configuration
+└── special_tokens.json    # Special tokens
 ```
 
-### Интеграция с CLI TTS
+### Integration with CLI TTS
 
-Обновите `cli_tts.py` чтобы использовать вашу модель:
+Update `cli_tts.py` to use your model:
 
 ```python
-# В функции setup_fish_speech() добавьте путь к вашей модели
+# In setup_fish_speech() function add path to your model
 custom_model_path = "checkpoints/my_custom_voice-merged"
 if Path(custom_model_path).exists():
-    print(f"🎤 Используем обученную модель: {custom_model_path}")
+    print(f"🎤 Using trained model: {custom_model_path}")
     return fish_speech_dir, Path(custom_model_path)
 ```
 
-**Альтернативно**, укажите путь напрямую при вызове TTS:
+**Alternatively**, specify the path directly when calling TTS:
 
 ```bash
-# Используйте полный путь к вашей модели
-poetry run python cli_tts.py "Тестируем нашу обученную модель" \
+# Use full path to your model
+poetry run python cli_tts.py "Testing our trained model" \
   --model-path checkpoints/test_limited-merged \
   -o output/test_finetuned.wav \
   --play
 ```
 
-### Тестирование модели
+### Testing the Model
 
 ```bash
-# Тест с кастомной моделью
-poetry run python cli_tts.py "Тестируем нашу обученную модель" \
+# Test with custom model
+poetry run python cli_tts.py "Testing our trained model" \
   --model-path checkpoints/my_custom_voice-merged \
   -o output/test_finetuned.wav \
   --play
 ```
 
-## Примеры
+## Examples
 
-### Пример 1: Обучение на записях подкаста
+### Example 1: Training on Podcast Recordings
 
 ```bash
-# 1. Загружаем подкаст с YouTube
+# 1. Download podcast from YouTube
 poetry run python prepare_dataset.py \
   --input "https://youtube.com/watch?v=PODCAST_ID" \
   --output training_data/podcast_host \
@@ -297,7 +496,7 @@ poetry run python prepare_dataset.py \
   --whisper-model large \
   --split-long
 
-# 2. Запускаем обучение
+# 2. Run training
 poetry run python finetune_tts.py \
   --project podcast_voice \
   --data-dir training_data/podcast_host \
@@ -306,19 +505,19 @@ poetry run python finetune_tts.py \
   --batch-size 4
 ```
 
-### Пример 2: Обучение на аудиокниге
+### Example 2: Training on Audiobook
 
 ```bash
-# 1. Подготавливаем главы аудиокниги
+# 1. Prepare audiobook chapters
 poetry run python prepare_dataset.py \
-  --input audiobook_chapters/ \
-  --output training_data/narrator \
+  --input samples/ \
+  --output training_data/note_lm \
   --normalize \
   --split-long \
   --auto-transcribe \
   --whisper-model base
 
-# 2. Обучение с меньшим learning rate (для более стабильного голоса)
+# 2. Train with lower learning rate (for more stable voice)
 poetry run python finetune_tts.py \
   --project audiobook_narrator \
   --data-dir training_data/narrator \
@@ -328,14 +527,14 @@ poetry run python finetune_tts.py \
   --learning-rate 2e-5
 ```
 
-### Пример 3: Обучение на собственном голосе
+### Example 3: Training on Your Own Voice
 
 ```bash
-# 1. Записываем свой голос (рекомендуется 30-45 минут разнообразного контента)
-# Сохраняем как: my_voice/recordings/session_01.wav, session_02.wav, etc.
-# Создаём текстовые файлы: session_01.txt, session_02.txt
+# 1. Record your voice (recommended 30-45 minutes of diverse content)
+# Save as: my_voice/recordings/session_01.wav, session_02.wav, etc.
+# Create text files: session_01.txt, session_02.txt
 
-# 2. Подготавливаем данные
+# 2. Prepare data
 poetry run python prepare_dataset.py \
   --input my_voice/recordings \
   --output training_data/my_voice \
@@ -343,7 +542,7 @@ poetry run python prepare_dataset.py \
   --normalize \
   --split-long
 
-# 3. Обучение с консервативными настройками
+# 3. Train with conservative settings
 poetry run python finetune_tts.py \
   --project my_personal_voice \
   --data-dir training_data/my_voice \
@@ -351,14 +550,14 @@ poetry run python finetune_tts.py \
   --max-steps 1000 \
   --batch-size 4 \
   --learning-rate 1e-4 \
-  --device mps  # для Apple Silicon
+  --device mps  # for Apple Silicon
 ```
 
-## Мониторинг обучения
+## Training Monitoring
 
-### Логи обучения
+### Training Logs
 
-Логи сохраняются в:
+Logs are saved in:
 ```
 fish-speech/results/my_custom_voice/
 ├── checkpoints/
@@ -366,205 +565,205 @@ fish-speech/results/my_custom_voice/
 └── training_configs/
 ```
 
-### Ключевые метрики
+### Key Metrics
 
-Следите за:
-- **Loss**: должен постепенно снижаться
-- **Learning Rate**: автоматически адаптируется
-- **GPU Memory**: не должна превышать доступную
+Monitor:
+- **Loss**: should gradually decrease
+- **Learning Rate**: automatically adapts
+- **GPU Memory**: should not exceed available
 
-### Остановка обучения
+### Stopping Training
 
-Обучение можно остановить в любой момент нажатием `Ctrl+C`. Чекпоинты сохраняются каждые 100 шагов.
+Training can be stopped at any time with `Ctrl+C`. Checkpoints are saved every 100 steps.
 
 ## Troubleshooting
 
-### Частые проблемы
+### Common Problems
 
 **1. Out of Memory (OOM)**
 ```bash
-# Уменьшите batch size
+# Reduce batch size
 --batch-size 1
 
-# Или используйте gradient accumulation
+# Or use gradient accumulation
 --gradient-accumulation-steps 4
 ```
 
-**2. Модель не сходится**
+**2. Model Not Converging**
 ```bash
-# Уменьшите learning rate
+# Reduce learning rate
 --learning-rate 5e-5
 
-# Увеличьте количество шагов
+# Increase number of steps
 --max-steps 2000
 ```
 
-**3. Некачественный синтез**
+**3. Poor Quality Synthesis**
 ```bash
-# Проверьте качество данных
+# Check data quality
 poetry run python prepare_dataset.py --input training_data/ --output check_data/ --auto-transcribe
 
-# Попробуйте другой checkpoint
---checkpoint-step 500  # вместо последнего
+# Try different checkpoint
+--checkpoint-step 500  # instead of latest
 ```
 
-**4. Долгое обучение**
+**4. Slow Training**
 ```bash
-# Используйте меньший датасет для тестирования
+# Use smaller dataset for testing
 --max-steps 500
 
-# Проверьте использование GPU
-nvidia-smi  # для NVIDIA
+# Check GPU usage
+nvidia-smi  # for NVIDIA
 ```
 
-### Проверка качества данных
+### Data Quality Check
 
 ```bash
-# Анализ подготовленного датасета
+# Analyze prepared dataset
 poetry run python -c "
 import json
 with open('training_data/my_voice/dataset_summary.json') as f:
     summary = json.load(f)
-    print(f'Файлов: {summary["total_files"]}')
-    print(f'Длительность: {summary["total_duration_minutes"]} мин')
-    print(f'Спикеры: {summary["speakers"]}')
+    print(f'Files: {summary["total_files"]}')
+    print(f'Duration: {summary["total_duration_minutes"]} min')
+    print(f'Speakers: {summary["speakers"]}')
 "
 ```
 
-### Оптимизация производительности
+### Performance Optimization
 
-**Для Apple Silicon (MPS):**
+**For Apple Silicon (MPS):**
 ```bash
 --device mps
---batch-size 2  # MPS может быть менее стабильным с большими батчами
+--batch-size 2  # MPS may be less stable with large batches
 ```
 
-**Для NVIDIA GPU:**
+**For NVIDIA GPU:**
 ```bash
 --device cuda
---batch-size 4  # или больше если позволяет память
+--batch-size 4  # or more if memory allows
 ```
 
-**Для CPU (медленно):**
+**For CPU (slow):**
 ```bash
 --device cpu
 --batch-size 1
---max-steps 100  # для тестирования
+--max-steps 100  # for testing
 ```
 
-## Устранение неполадок
+### Specific Issues
 
-### Проблема: Ошибка типов данных в LoRA слоях
+#### Data Type Error in LoRA Layers
 
-**Симптомы:**
+**Symptoms:**
 ```
 RuntimeError: expected m1 and m2 to have the same dtype, but got: c10::BFloat16 != float
 ```
 
-**Причина:** 
-Предобученная модель Fish Speech загружается с BFloat16 точностью, а LoRA адаптеры инициализируются в Float32. Это приводит к несовместимости типов данных при матричных операциях.
+**Cause:** 
+Pretrained Fish Speech model loads with BFloat16 precision, while LoRA adapters initialize in Float32. This leads to data type incompatibility in matrix operations.
 
-**Решения:**
+**Solutions:**
 
-1. **Автоматическое (рекомендуется):** Скрипт автоматически использует FP32 для всех операций
+1. **Automatic (recommended):** Script automatically uses FP32 for all operations
    ```bash
-   # Скрипт автоматически настроит правильную точность
+   # Script automatically sets correct precision
    poetry run python finetune_tts.py --project my_voice --data-dir training_data/my_voice --train
    ```
 
-2. **Если ошибка повторяется:** Принудительно укажите устройство и точность
+2. **If error persists:** Force device and precision
    ```bash
-   # Явная настройка точности
+   # Explicit precision setup
    poetry run python finetune_tts.py --project my_voice --data-dir training_data/my_voice --train --device cpu --batch-size 1
    ```
 
-**Технические детали:**
-- Базовая модель Fish Speech сохранена с BFloat16 точностью
-- LoRA слои по умолчанию создаются в Float32
-- Скрипт принудительно использует FP32 для всех компонентов (`trainer.precision=32` + `model.torch_dtype=float32`)
-- Это может замедлить обучение, но обеспечивает стабильность
+**Technical Details:**
+- Base Fish Speech model saved with BFloat16 precision
+- LoRA layers default to Float32 creation
+- Script forces FP32 for all components (`trainer.precision=32` + `model.torch_dtype=float32`)
+- This may slow training but ensures stability
 
-### Проблема: Ошибка тензоров на Apple Silicon (MPS)
+#### Tensor Errors on Apple Silicon (MPS)
 
-**Симптомы:**
+**Symptoms:**
 ```
 RuntimeError: Expected scalar_type == ScalarType::Float || inputTensor.scalar_type() == ScalarType::Int || scalar_type == ScalarType::Bool to be true, but got false.
 ```
 
-**Причина:** 
-MPS (Metal Performance Shaders) на Apple Silicon имеет ограничения совместимости с некоторыми операциями PyTorch, особенно с mixed precision training и определёнными типами тензоров.
+**Cause:** 
+MPS (Metal Performance Shaders) on Apple Silicon has compatibility limitations with some PyTorch operations, especially with mixed precision training and certain tensor types.
 
-**Решения:**
+**Solutions:**
 
-1. **Автоматическое (рекомендуется):** Скрипт автоматически переключается на CPU при обнаружении Apple Silicon
+1. **Automatic (recommended):** Script automatically switches to CPU when Apple Silicon detected
    ```bash
-   # CPU используется автоматически на Apple Silicon
+   # CPU used automatically on Apple Silicon
    poetry run python finetune_tts.py --project my_voice --data-dir training_data/my_voice --train
    ```
 
-2. **Принудительное использование MPS (экспериментально):**
+2. **Force MPS usage (experimental):**
    ```bash
-   # Попробовать MPS с полной точностью
+   # Try MPS with full precision
    poetry run python finetune_tts.py --project my_voice --data-dir training_data/my_voice --train --force-mps
    ```
 
-3. **Явное указание CPU:**
+3. **Explicit CPU usage:**
    ```bash
-   # Принудительно использовать CPU
+   # Force CPU usage
    poetry run python finetune_tts.py --project my_voice --data-dir training_data/my_voice --train --device cpu
    ```
 
-**Производительность на Apple Silicon:**
-- **CPU:** Стабильно, поддерживает все операции, медленнее GPU
-- **MPS:** Быстрее CPU, но может быть нестабильным с некоторыми моделями
-- Рекомендуется начать с CPU, а при необходимости попробовать `--force-mps`
+**Performance on Apple Silicon:**
+- **CPU:** Stable, supports all operations, slower than GPU
+- **MPS:** Faster than CPU, but may be unstable with some models
+- Recommended: start with CPU, try `--force-mps` if needed
 
-### Проблема: Медленное обучение
+#### Slow Training
 
-**Симптомы:** Обучение идёт очень медленно
+**Symptoms:** Training progresses very slowly
 
-**Решения:**
-1. Уменьшите размер батча: `--batch-size 1`
-2. Уменьшите количество шагов: `--max-steps 500`
-3. Используйте меньший LoRA rank: `--lora-config r_4_alpha_8`
-4. Если есть NVIDIA GPU, используйте `--device cuda`
+**Solutions:**
+1. Reduce batch size: `--batch-size 1`
+2. Reduce number of steps: `--max-steps 500`
+3. Use smaller LoRA rank: `--lora-config r_4_alpha_8`
+4. If NVIDIA GPU available, use `--device cuda`
 
-### Проблема: Нехватка памяти
+#### Memory Issues
 
-**Симптомы:** 
+**Symptoms:** 
 ```
 RuntimeError: [enforce fail at alloc_cpu.cpp] data.
 OutOfMemoryError: Unable to allocate array
 ```
 
-**Решения:**
-1. Уменьшите размер батча до 1: `--batch-size 1`
-2. Используйте CPU вместо GPU: `--device cpu`
-3. Закройте другие приложения
-4. Уменьшите количество worker'ов: `--num-workers-extract 1`
+**Solutions:**
+1. Reduce batch size to 1: `--batch-size 1`
+2. Use CPU instead of GPU: `--device cpu`
+3. Close other applications
+4. Reduce number of workers: `--num-workers-extract 1`
 
-## Продвинутые техники
+## Advanced Techniques
 
-### Смешивание голосов
+### Voice Mixing
 
-Можно обучить модель на нескольких голосах:
+You can train model on multiple voices:
 
 ```bash
-# Подготавливаем данные для каждого спикера отдельно
+# Prepare data for each speaker separately
 poetry run python prepare_dataset.py --input speaker1_data/ --output training_data/multi_voice --speaker Speaker1
 poetry run python prepare_dataset.py --input speaker2_data/ --output training_data/multi_voice --speaker Speaker2
 
-# Обучаем на объединённом датасете
+# Train on combined dataset
 poetry run python finetune_tts.py \
   --project multi_voice_model \
   --data-dir training_data/multi_voice \
   --full-pipeline
 ```
 
-### Инкрементальное обучение
+### Incremental Training
 
 ```bash
-# Дообучение существующей модели
+# Continue training existing model
 poetry run python finetune_tts.py \
   --project my_voice_v2 \
   --data-dir new_training_data/ \
@@ -572,46 +771,46 @@ poetry run python finetune_tts.py \
   --pretrained-ckpt-path checkpoints/my_custom_voice-merged/
 ```
 
-### Проверка обученной модели
+### Trained Model Verification
 
-После завершения обучения проверьте, что все файлы созданы корректно:
+After training completion, verify all files are created correctly:
 
 ```bash
-# Проверка размеров файлов модели
+# Check model file sizes
 ls -lh checkpoints/my_custom_voice-merged/
 
-# Должно показать примерно:
-# model.pth              ~1.2GB   # Основная модель
-# tokenizer.tiktoken     ~1.6MB   # Токенизатор
-# config.json            ~1KB     # Конфигурация
-# special_tokens.json    ~30KB    # Специальные токены
+# Should show approximately:
+# model.pth              ~1.2GB   # Main model
+# tokenizer.tiktoken     ~1.6MB   # Tokenizer
+# config.json            ~1KB     # Configuration
+# special_tokens.json    ~30KB    # Special tokens
 ```
 
-**Ожидаемые размеры:**
-- `model.pth`: 1.0-1.3 GB (зависит от размера базовой модели)
-- `tokenizer.tiktoken`: 1-2 MB (словарь токенов)
-- `config.json`: менее 1 KB (параметры модели)
-- `special_tokens.json`: 20-40 KB (специальные токены)
+**Expected Sizes:**
+- `model.pth`: 1.0-1.3 GB (depends on base model size)
+- `tokenizer.tiktoken`: 1-2 MB (token vocabulary)
+- `config.json`: less than 1 KB (model parameters)
+- `special_tokens.json`: 20-40 KB (special tokens)
 
-Если какой-то файл отсутствует или имеет неожиданный размер, проверьте логи обучения.
+If any file is missing or has unexpected size, check training logs.
 
-### Эксперименты с LoRA
+### LoRA Experiments
 
 ```bash
-# Более агрессивное обучение
+# More aggressive training
 --lora-config r_16_alpha_32
 
-# Более консервативное обучение  
+# More conservative training  
 --lora-config r_4_alpha_8
 ```
 
-## Заключение
+## Conclusion
 
-Fine-tuning Fish Speech позволяет создавать высококачественные кастомные голоса. Ключевые факторы успеха:
+Fish Speech fine-tuning allows creating high-quality custom voices. Key success factors:
 
-1. **Качественные данные**: чистые записи с точной транскрипцией
-2. **Достаточный объём**: минимум 10-30 минут аудио
-3. **Правильные параметры**: начинайте с консервативных настроек
-4. **Терпение**: хорошие результаты требуют времени
+1. **Quality Data**: clean recordings with accurate transcription
+2. **Sufficient Volume**: minimum 10-30 minutes of audio
+3. **Correct Parameters**: start with conservative settings
+4. **Patience**: good results require time
 
-Успешного fine-tuning! 🎤✨
+Happy fine-tuning! 🎤✨

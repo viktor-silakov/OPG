@@ -10,7 +10,8 @@
     "install-all": "npm run install-backend && npm run install-frontend",
     "install-backend": "cd backend && npm install",
     "install-frontend": "cd frontend && npm install",
-    "build": "cd frontend && npm run build"
+    "build": "cd frontend && npm run build",
+    "clear:cache": "rimraf fs-python/cache"
   },
   "keywords": [
     "podcast",
@@ -22,6 +23,9 @@
   ],
   "author": "Podcast Generator Team",
   "license": "MIT",
+  "dependencies": {
+    "rimraf": "^6.0.1"
+  },
   "devDependencies": {
     "concurrently": "^9.1.2"
   },

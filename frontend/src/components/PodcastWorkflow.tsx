@@ -82,9 +82,9 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
     validate: {
       userPrompt: (value) => (!value.trim() ? "Specify the podcast topic" : null),
       conversationJson: (value) => {
-        if (step === 1 && !value.trim())
+        if (step >= 1 && !value.trim())
           return "Script is required to generate a podcast";
-        if (step === 1) {
+        if (step >= 1 && value.trim()) {
           try {
             JSON.parse(value);
             return null;
@@ -370,6 +370,34 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
     }
   };
 
+  const handleGeneratePodcastClick = () => {
+    // Validate only the JSON field
+    const jsonValue = form.values.conversationJson;
+    if (!jsonValue.trim()) {
+      notifications.show({
+        title: "Error",
+        message: "Script is required to generate a podcast",
+        color: "red",
+        icon: <IconX size={16} />,
+      });
+      return;
+    }
+
+    try {
+      JSON.parse(jsonValue);
+    } catch {
+      notifications.show({
+        title: "Error", 
+        message: "Invalid JSON format",
+        color: "red",
+        icon: <IconX size={16} />,
+      });
+      return;
+    }
+
+    handleGeneratePodcast(form.values);
+  };
+
   const downloadJson = () => {
     if (!scriptResult) return;
 
@@ -416,7 +444,7 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
         )}
       </div>
 
-      <Stepper active={step} onStepClick={setStep} allowNextStepsSelect={false}>
+      <Stepper active={step} onStepClick={setStep} allowNextStepsSelect={true}>
         <Stepper.Step label="Generating script" description="Creating dialogue">
           <Space h="md" />
 
@@ -632,10 +660,9 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
 
               <Group justify="flex-end">
                 <Button
-                  onClick={() => form.onSubmit(handleGeneratePodcast)()}
+                  onClick={handleGeneratePodcastClick}
                   loading={podcastLoading}
                   leftSection={<IconPlayerPlay size={16} />}
-                  disabled={!form.values.conversationJson}
                 >
                   Generate podcast
                 </Button>

@@ -142,8 +142,9 @@ conversation.json.backup
 output/
 output/temp/ 
 .DS_Store
-fs-python/fish-speech.bak/
 fs-python/data/
 fs-python/training_data/
 .env.backup.1749047384170
 .env.backup.1749052604725
+backend/conversation.json
+fs-python/training_configs/
