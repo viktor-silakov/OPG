@@ -25,6 +25,7 @@ import {
   IconScript,
   IconPlayerPlay,
   IconDownload,
+  IconPlayerSkipForward,
 } from "@tabler/icons-react";
 import {
   apiClient,
@@ -429,6 +430,16 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
     form.setFieldValue("systemPrompt", defaultSystemPrompt);
   };
 
+  const handleSkipScript = () => {
+    setStep(1); // Move to next step
+    notifications.show({
+      title: "Skipped",
+      message: "Script generation skipped. You can manually enter JSON in the next step.",
+      color: "blue",
+      icon: <IconPlayerSkipForward size={16} />,
+    });
+  };
+
   return (
     <Stack gap="lg">
       <div>
@@ -460,6 +471,13 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
           <Paper p="md" withBorder>
             <Stack gap="md">
               <Group justify="flex-end">
+                <Button
+                  variant="light"
+                  onClick={handleSkipScript}
+                  leftSection={<IconPlayerSkipForward size={16} />}
+                >
+                  Skip
+                </Button>
                 <Button
                   onClick={() => form.onSubmit(handleGenerateScript)()}
                   loading={scriptLoading}
@@ -515,16 +533,6 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
                 resize="vertical"
                 {...form.getInputProps("systemPrompt")}
               />
-
-              <Group justify="flex-end">
-                <Button
-                  onClick={() => form.onSubmit(handleGenerateScript)()}
-                  loading={scriptLoading}
-                  leftSection={<IconScript size={16} />}
-                >
-                  Generate script
-                </Button>
-              </Group>
             </Stack>
           </Paper>
 

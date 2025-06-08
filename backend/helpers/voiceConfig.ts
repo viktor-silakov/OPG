@@ -1,8 +1,8 @@
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
+import { fileURLToPath } from "url";
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 export interface VoiceSettings {
   speed: number;
@@ -15,7 +15,7 @@ export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   speed: 1.0,
   volume: 0,
   pitch: 1.0,
-  checkpointPath: undefined
+  checkpointPath: undefined,
 };
 
 // Voice configuration interface
@@ -31,43 +31,36 @@ function loadVoiceConfig(): VoiceConfig {
   }
 
   console.log(`Current working directory: ${process.cwd()}`);
-  
+
   // Try multiple possible paths
-  const possiblePaths = [
-    join(process.cwd(), 'voice-config.json'),
-  ];
-  
-  let configPath = '';
-  let configFound = false;
-  
-  for (const path of possiblePaths) {
-    console.log(`Checking voice config at: ${path}`);
-    if (existsSync(path)) {
-      configPath = path;
-      configFound = true;
-      console.log(`✅ Voice config file found at: ${path}`);
-      break;
-    } else {
-      console.log(`❌ Voice config file not found at: ${path}`);
-    }
-  }
-  
-  if (!configFound) {
-    console.log(`❌ Voice config file not found in any of the expected locations`);
+  const configPath = join(process.cwd(), "..", "voice-config.json");
+  console.log(`Checking voice config at: ${configPath}`);
+
+  if (!existsSync(configPath)) {
+    console.log(
+      `❌ Voice config file not found  at '${configPath}' in any of the expected locations`
+    );
     cachedConfig = {};
     return cachedConfig;
   }
-  
+
   try {
-    const configData = readFileSync(configPath, 'utf-8');
+    const configData = readFileSync(configPath, "utf-8");
     const fullConfig = JSON.parse(configData);
     // Extract voices section from the config
     cachedConfig = fullConfig.voices || {};
-    console.log(`Loaded ${Object.keys(cachedConfig || {}).length} voices from config`);
-    console.log(`Available voices: ${Object.keys(cachedConfig || {}).join(', ')}`);
+    console.log(
+      `Loaded ${Object.keys(cachedConfig || {}).length} voices from config`
+    );
+    console.log(
+      `Available voices: ${Object.keys(cachedConfig || {}).join(", ")}`
+    );
     return cachedConfig!;
   } catch (error) {
-    console.warn(`Warning: Could not load voice config from ${configPath}:`, error);
+    console.warn(
+      `Warning: Could not load voice config from ${configPath}:`,
+      error
+    );
   }
 
   // Return default settings if file not found
@@ -78,7 +71,7 @@ function loadVoiceConfig(): VoiceConfig {
 export function getVoiceSettings(voiceName: string): VoiceSettings {
   const config = loadVoiceConfig();
   console.log(`Getting settings for voice: ${voiceName}`);
-  
+
   if (config[voiceName]) {
     const settings = { ...DEFAULT_VOICE_SETTINGS, ...config[voiceName] };
     console.log(`Voice settings for ${voiceName}:`, settings);
@@ -96,15 +89,15 @@ export function getVoiceCommandArgs(voiceName: string): string[] {
 
   // Add arguments only if they differ from default values
   if (settings.speed !== DEFAULT_VOICE_SETTINGS.speed) {
-    args.push('--speed', settings.speed.toString());
+    args.push("--speed", settings.speed.toString());
   }
 
   if (settings.volume !== DEFAULT_VOICE_SETTINGS.volume) {
-    args.push('--volume', settings.volume.toString());
+    args.push("--volume", settings.volume.toString());
   }
 
   if (settings.pitch !== DEFAULT_VOICE_SETTINGS.pitch) {
-    args.push('--pitch', settings.pitch.toString());
+    args.push("--pitch", settings.pitch.toString());
   }
 
   return args;
@@ -112,5 +105,5 @@ export function getVoiceCommandArgs(voiceName: string): string[] {
 
 export function clearVoiceConfigCache() {
   cachedConfig = null;
-  console.log('Voice config cache cleared');
-} 
+  console.log("Voice config cache cleared");
+}
