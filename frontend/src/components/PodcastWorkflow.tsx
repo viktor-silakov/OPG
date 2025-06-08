@@ -73,6 +73,7 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
   );
   const [elapsedTime, setElapsedTime] = useState(0);
   const [replicasCount, setReplicasCount] = useState(0);
+  const [showAudioPlayer, setShowAudioPlayer] = useState(false);
 
   const form = useForm({
     initialValues: {
@@ -164,6 +165,18 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
     const count = countReplicas(form.values.conversationJson);
     setReplicasCount(count);
   }, [form.values.conversationJson]);
+
+  // Effect to show audio player after 5 seconds when reaching final step
+  useEffect(() => {
+    if (step === 2 && podcastResult) {
+      setShowAudioPlayer(false); // Reset first
+      const timer = setTimeout(() => {
+        setShowAudioPlayer(true);
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [step, podcastResult]);
 
   // Load system prompts list
   useEffect(() => {
@@ -426,6 +439,7 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
     setGenerationStartTime(null);
     setElapsedTime(0);
     setReplicasCount(0);
+    setShowAudioPlayer(false);
     form.reset();
     form.setFieldValue("systemPrompt", defaultSystemPrompt);
   };
@@ -719,28 +733,44 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
                 <Divider label="Playing and downloading" />
 
                 <Stack gap="md">
-                  <div>
-                    <Text size="sm" c="dimmed" mb="xs">
-                      Audio player:
-                    </Text>
-                    <audio
-                      controls
-                      style={{ width: "100%" }}
-                      src={`http://localhost:3000/output/${podcastResult.filename}/${podcastResult.filename}`}
-                      preload="metadata"
-                      onError={(e) => {
-                        console.error("Audio loading error:", e);
-                        notifications.show({
-                          title: "Error loading audio",
-                          message:
-                            "Failed to load audio file. Please try downloading the file.",
-                          color: "orange",
-                        });
-                      }}
-                    >
-                      Your browser does not support the audio element.
-                    </audio>
-                  </div>
+                  {showAudioPlayer ? (
+                    <div>
+                      <Text size="sm" c="dimmed" mb="xs">
+                        Audio player:
+                      </Text>
+                      <audio
+                        controls
+                        style={{ width: "100%" }}
+                        src={`http://localhost:3000/output/${podcastResult.filename}/${podcastResult.filename}`}
+                        preload="metadata"
+                        onError={(e) => {
+                          console.error("Audio loading error:", e);
+                          notifications.show({
+                            title: "Error loading audio",
+                            message:
+                              "Failed to load audio file. Please try downloading the file.",
+                            color: "orange",
+                          });
+                        }}
+                      >
+                        Your browser does not support the audio element.
+                      </audio>
+                    </div>
+                  ) : (
+                    <div>
+                      <Text size="sm" c="dimmed" mb="xs">
+                        Audio player:
+                      </Text>
+                      <Paper p="md" withBorder>
+                        <Group>
+                          <Loader size="sm" />
+                          <Text size="sm" c="dimmed">
+                            Loading audio player...
+                          </Text>
+                        </Group>
+                      </Paper>
+                    </div>
+                  )}
 
                   <Group>
                     <Button
