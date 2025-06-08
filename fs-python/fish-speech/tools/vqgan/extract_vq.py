@@ -50,7 +50,7 @@ def get_model(
     checkpoint_path: str = "checkpoints/fish-speech-1.5/firefly-gan-vq-fsq-8x1024-21hz-generator.pth",
     device: str | torch.device = "auto",
 ):
-    # Определяем устройство
+
     if device == "auto":
         if torch.cuda.is_available():
             device = "cuda"
