@@ -72,6 +72,7 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
     null
   );
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [finalGenerationTime, setFinalGenerationTime] = useState<number | null>(null);
   const [replicasCount, setReplicasCount] = useState(0);
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
 
@@ -271,6 +272,12 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
             (update.current >= update.total && update.total > 0);
 
           if (isCompleted) {
+            // Save final generation time before resetting
+            if (generationStartTime) {
+              const finalTime = Math.floor((Date.now() - generationStartTime) / 1000);
+              setFinalGenerationTime(finalTime);
+            }
+            
             setPodcastLoading(false);
             setGenerationStartTime(null); // Reset timer on completion
             setStep(2);
@@ -438,6 +445,7 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
     setWs(null);
     setGenerationStartTime(null);
     setElapsedTime(0);
+    setFinalGenerationTime(null);
     setReplicasCount(0);
     setShowAudioPlayer(false);
     form.reset();
@@ -707,12 +715,17 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
                 </Group>
 
                 <Group gap="xs">
-                  <Badge color="blue" variant="light">
-                    {podcastResult.status}
-                  </Badge>
                   <Badge color="green" variant="light">
+                    Done
+                  </Badge>
+                  <Badge color="blue" variant="light">
                     {podcastResult.messageCount} replies
                   </Badge>
+                  {finalGenerationTime !== null && (
+                    <Badge color="orange" variant="light">
+                      Generated in {formatElapsedTime(finalGenerationTime)}
+                    </Badge>
+                  )}
                 </Group>
 
                 <div>
@@ -728,6 +741,17 @@ export function PodcastWorkflow({ generationData }: PodcastWorkflowProps) {
                   </Text>
                   <Text fw={500}>{podcastResult.filename}</Text>
                 </div>
+
+                {finalGenerationTime !== null && (
+                  <div>
+                    <Text size="sm" c="dimmed" mb="xs">
+                      Generation time:
+                    </Text>
+                    <Text fw={500} c="orange">
+                      {formatElapsedTime(finalGenerationTime)}
+                    </Text>
+                  </div>
+                )}
 
                 {/* Audio player and buttons */}
                 <Divider label="Playing and downloading" />

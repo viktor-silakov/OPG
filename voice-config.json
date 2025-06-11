@@ -36,7 +36,7 @@
       "emotion": null,
       "intensity": null,
       "style": null,
-      "checkpointPath": "checkpoints/note_lm_step3-merged",
+      "checkpointPath_": "checkpoints/note_lm_step4-merged",
       "description": "Female voice Sofa tuned for LM"
     },
     "RU_GLM_Male_Kirill": {
@@ -46,7 +46,7 @@
       "emotion": null,
       "intensity": null,
       "style": null,
-      "checkpointPath": "checkpoints/note_lm_step3-merged",
+      "checkpointPath_": "checkpoints/note_lm_step4-merged",
       "description": "Male voice Kirill tuned for GLM"
     },
     "RU_Google_Female_Zephyr": {

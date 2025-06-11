@@ -11,11 +11,17 @@ torch = "2.7.0"
 torchvision = "0.22.0"
 torchaudio = "2.7.0"
 soundfile = "^0.12"
+librosa = "^0.10.0"
+tqdm = "^4.65.0"
+numpy = "^1.24.0"
+pydub = "^0.25.0"
+yt-dlp = "*"
 
 # The git dependency will pull gradio and the required huggingface-hub itself
-fish-speech = { git = "https://github.com/fishaudio/fish-speech.git", branch = "main" }
+# fish-speech = { git = "https://github.com/fishaudio/fish-speech.git", branch = "main" }
 scipy = "^1.15.3"
 openai-whisper = "^20240930"
+faster-whisper = "^0.10.0"
 loguru = "^0.7.3"
 psutil = "^7.0.0"
 

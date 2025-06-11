@@ -11,6 +11,8 @@ interface WorkerRequest {
   model_version?: string;
   model_path?: string;
   use_semantic_cache?: boolean;
+  batch?: WorkerRequest[];
+  batch_id?: number;
 }
 
 interface WorkerResponse {
@@ -26,6 +28,23 @@ interface WorkerResponse {
     mps_mb: number;
   };
   error?: string;
+  batch_id?: number;
+  processed_count?: number;
+  successful_count?: number;
+}
+
+interface BatchConfig {
+  enabled: boolean;
+  maxSize: number;
+  timeoutMs: number;
+  maxTextLength: number;
+}
+
+interface QueuedRequest {
+  request: WorkerRequest;
+  resolve: (result: WorkerResponse) => void;
+  reject: (error: any) => void;
+  timestamp: number;
 }
 
 class AudioWorker extends EventEmitter {
@@ -54,7 +73,11 @@ class AudioWorker extends EventEmitter {
         MKL_NUM_THREADS: "1",
         OPENBLAS_NUM_THREADS: "1",
         PYTORCH_MPS_HIGH_WATERMARK_RATIO: "0.0",
-        PYTORCH_MPS_ALLOCATOR_POLICY: "garbage_collection"
+        PYTORCH_MPS_ALLOCATOR_POLICY: "garbage_collection",
+        // Batching configuration
+        ENABLE_BATCHING: process.env.ENABLE_BATCHING || "true",
+        MAX_BATCH_SIZE: process.env.MAX_BATCH_SIZE || "4",
+        BATCH_TIMEOUT_MS: process.env.BATCH_TIMEOUT_MS || "500"
       }
     });
 
@@ -100,7 +123,7 @@ class AudioWorker extends EventEmitter {
       ];
       
       const lines = stderrText.split('\n');
-      const filteredLines = lines.filter(line => {
+      const filteredLines = lines.filter((line: string) => {
         const trimmedLine = line.trim();
         if (!trimmedLine) return false;
         
@@ -169,6 +192,27 @@ class AudioWorker extends EventEmitter {
         this.emit("generation_result", response);
         break;
 
+      case "batch_completed":
+        this.isBusy = false;
+        this.currentRequest = null;
+        
+        console.log(chalk.blue(
+          `📦 Worker ${this.id}: Batch ${response.batch_id} completed - ` +
+          `${response.successful_count}/${response.processed_count} successful`
+        ));
+        
+        this.emit("batch_completed", response);
+        break;
+
+      case "batch_result":
+        if (!response.success) {
+          console.error(chalk.red(
+            `❌ Worker ${this.id}: Batch ${response.batch_id} failed: ${response.error}`
+          ));
+        }
+        this.emit("batch_result", response);
+        break;
+
       case "pong":
         // Health check response
         this.emit("pong", response);
@@ -228,6 +272,27 @@ class AudioWorker extends EventEmitter {
     });
   }
 
+  generateBatch(requests: WorkerRequest[], batchId: number): boolean {
+    if (this.isBusy) {
+      return false;
+    }
+    
+    // Mark worker as busy for batch processing
+    this.isBusy = true;
+    this.currentRequest = { id: batchId, type: "generate_batch" };
+    
+    return this.sendRequest({
+      id: batchId,
+      type: "generate_batch",
+      batch: requests.map(req => ({
+        ...req,
+        use_semantic_cache: this.useSemanticCache
+      })),
+      batch_id: batchId,
+      use_semantic_cache: this.useSemanticCache
+    });
+  }
+
   ping(): boolean {
     return this.sendRequest({ id: 0, type: "ping" });
   }
@@ -251,13 +316,18 @@ class AudioWorker extends EventEmitter {
 
 export class WorkerManager extends EventEmitter {
   private workers: Map<number, AudioWorker> = new Map();
-  private requestQueue: WorkerRequest[] = [];
+  private requestQueue: QueuedRequest[] = [];
   private pendingRequests: Map<number, (result: WorkerResponse) => void> = new Map();
   private concurrentRequests: number;
   private device: string;
   private modelVersion: string;
   private modelPath?: string;
   private useSemanticCache: boolean;
+  
+  // Batching configuration
+  private batchConfig: BatchConfig;
+  private batchIdCounter: number = 1;
+  private batchTimer: NodeJS.Timeout | null = null;
 
   constructor(concurrentRequests: number = 2, device: string = "mps", modelVersion: string = "1.5", modelPath?: string, useSemanticCache: boolean = true) {
     super();
@@ -267,7 +337,21 @@ export class WorkerManager extends EventEmitter {
     this.modelPath = modelPath;
     this.useSemanticCache = useSemanticCache;
     
+    // Initialize batch configuration
+    this.batchConfig = {
+      enabled: process.env.ENABLE_BATCHING === "true",
+      maxSize: parseInt(process.env.MAX_BATCH_SIZE || "4"),
+      timeoutMs: parseInt(process.env.BATCH_TIMEOUT_MS || "500"),
+      maxTextLength: parseInt(process.env.MAX_BATCH_TEXT_LENGTH || "2000")
+    };
+    
     console.log(chalk.blue(`🚀 WorkerManager: Initializing ${concurrentRequests} workers on ${device}`));
+    if (this.batchConfig.enabled) {
+      console.log(chalk.blue(
+        `📦 Batching enabled: max_size=${this.batchConfig.maxSize}, ` +
+        `timeout=${this.batchConfig.timeoutMs}ms, max_text=${this.batchConfig.maxTextLength}`
+      ));
+    }
   }
 
   async initialize(): Promise<boolean> {
@@ -280,13 +364,19 @@ export class WorkerManager extends EventEmitter {
       
       // Set up worker event handlers
       worker.on("generation_result", (response: WorkerResponse) => {
+        console.log(chalk.green(`📬 Received result for request ${response.id} from worker ${response.worker_id}`));
+        
         const callback = this.pendingRequests.get(response.id || 0);
         if (callback) {
           callback(response);
           this.pendingRequests.delete(response.id || 0);
+          console.log(chalk.cyan(`✅ Resolved pending request ${response.id}`));
+        } else {
+          console.log(chalk.yellow(`⚠️ No pending callback found for request ${response.id}`));
         }
         
         // Process next request in queue
+        console.log(chalk.cyan(`🔄 Triggering queue processing after result`));
         this.processQueue();
       });
 
@@ -344,26 +434,38 @@ export class WorkerManager extends EventEmitter {
         use_semantic_cache: this.useSemanticCache
       };
 
+      const queuedRequest: QueuedRequest = {
+        request,
+        resolve,
+        reject,
+        timestamp: Date.now()
+      };
+
       // Store callback for this request
       this.pendingRequests.set(id, resolve);
 
-      // Try to find available worker immediately
-      const availableWorker = this.findAvailableWorker();
-      if (availableWorker) {
-        availableWorker.generateAudio(request);
+      if (this.batchConfig.enabled) {
+        // Add to queue for potential batching
+        this.requestQueue.push(queuedRequest);
+        this.processBatchQueue();
       } else {
-        // Add to queue
-        this.requestQueue.push(request);
-        console.log(chalk.yellow(`📋 WorkerManager: Request ${id} queued (queue size: ${this.requestQueue.length})`));
+        // Direct processing without batching
+        const availableWorker = this.findAvailableWorker();
+        if (availableWorker) {
+          availableWorker.generateAudio(request);
+        } else {
+          this.requestQueue.push(queuedRequest);
+          console.log(chalk.yellow(`📋 WorkerManager: Request ${id} queued (queue size: ${this.requestQueue.length})`));
+        }
       }
 
       // Set timeout for request
       setTimeout(() => {
         if (this.pendingRequests.has(id)) {
           this.pendingRequests.delete(id);
-          reject(new Error(`Request ${id} timed out after 5 minutes`));
+          reject(new Error(`Request ${id} timed out after 15 minutes`));
         }
-      }, 5 * 60 * 1000);
+      }, 15 * 60 * 1000);
     });
   }
 
@@ -377,18 +479,183 @@ export class WorkerManager extends EventEmitter {
   }
 
   private processQueue(): void {
+    console.log(chalk.cyan(`🔄 ProcessQueue called with ${this.requestQueue.length} requests`));
+    
     if (this.requestQueue.length === 0) {
+      console.log(chalk.cyan(`ℹ️ Queue is empty`));
       return;
     }
 
     const availableWorker = this.findAvailableWorker();
     if (availableWorker) {
-      const request = this.requestQueue.shift();
-      if (request) {
-        console.log(chalk.blue(`🔄 WorkerManager: Processing queued request ${request.id}`));
-        availableWorker.generateAudio(request);
+      const queuedRequest = this.requestQueue.shift();
+      if (queuedRequest) {
+        console.log(chalk.blue(`🔄 WorkerManager: Processing queued request ${queuedRequest.request.id} with worker ${availableWorker.id}`));
+        availableWorker.generateAudio(queuedRequest.request);
+        
+        // Continue processing if there are more requests
+        if (this.requestQueue.length > 0) {
+          console.log(chalk.cyan(`🔄 ${this.requestQueue.length} requests remaining, continuing`));
+          setTimeout(() => this.processQueue(), 10);
+        }
+      } else {
+        console.log(chalk.yellow(`⚠️ Queue had items but shift() returned undefined`));
+      }
+    } else {
+      console.log(chalk.yellow(`⚠️ No available workers for queue processing`));
+    }
+  }
+
+  private processBatchQueue(): void {
+    if (!this.batchConfig.enabled || this.requestQueue.length === 0) {
+      return;
+    }
+
+    console.log(chalk.cyan(`🔍 ProcessBatchQueue: ${this.requestQueue.length} requests in queue`));
+
+    // Clear existing timer
+    if (this.batchTimer) {
+      clearTimeout(this.batchTimer);
+      this.batchTimer = null;
+    }
+
+    // Try to form a batch immediately if we have enough requests
+    if (this.requestQueue.length >= this.batchConfig.maxSize) {
+      console.log(chalk.cyan(`📦 Immediate batch processing: ${this.requestQueue.length} >= ${this.batchConfig.maxSize}`));
+      this.formAndProcessBatch();
+      return;
+    }
+
+    // Set timer for batch timeout
+    console.log(chalk.cyan(`⏰ Setting batch timer: ${this.batchConfig.timeoutMs}ms`));
+    this.batchTimer = setTimeout(() => {
+      console.log(chalk.cyan(`⏰ Batch timer fired, processing ${this.requestQueue.length} requests`));
+      this.formAndProcessBatch();
+    }, this.batchConfig.timeoutMs);
+  }
+
+  private formAndProcessBatch(): void {
+    console.log(chalk.cyan(`🔄 FormAndProcessBatch called with ${this.requestQueue.length} requests`));
+    
+    if (this.requestQueue.length === 0) {
+      console.log(chalk.cyan(`ℹ️ No requests to process, returning`));
+      return;
+    }
+
+    const availableWorker = this.findAvailableWorker();
+    if (!availableWorker) {
+      console.log(chalk.yellow(`⚠️ No available workers, falling back to regular queue processing`));
+      // Fallback: try regular queue processing instead of hanging
+      this.processQueue();
+      return;
+    }
+
+    console.log(chalk.cyan(`👷 Found available worker ${availableWorker.id}`));
+
+    // Group compatible requests into batches
+    const batches = this.groupCompatibleRequests();
+    console.log(chalk.cyan(`📊 Grouped into ${batches.length} batches`));
+    
+    for (const batch of batches) {
+      if (batch.length === 0) continue;
+      
+      console.log(chalk.cyan(`🔄 Processing batch with ${batch.length} requests`));
+      
+      const worker = this.findAvailableWorker();
+      if (!worker) {
+        console.log(chalk.yellow(`⚠️ No worker available for batch, re-queuing ${batch.length} requests`));
+        // Re-queue the requests for later processing
+        this.requestQueue.push(...batch);
+        break;
+      }
+
+      if (batch.length === 1) {
+        // Single request, process normally
+        const queuedRequest = batch[0];
+        console.log(chalk.blue(`🔄 WorkerManager: Processing single request ${queuedRequest.request.id}`));
+        worker.generateAudio(queuedRequest.request);
+      } else {
+        // Batch processing
+        const batchId = this.batchIdCounter++;
+        const batchRequests = batch.map(qr => qr.request);
+        
+        console.log(chalk.blue(`📦 WorkerManager: Processing batch ${batchId} with ${batch.length} requests`));
+        
+        // Set up batch completion handler
+        const handleBatchResult = (response: WorkerResponse) => {
+          console.log(chalk.green(`✅ Batch ${batchId} completed: ${response.successful_count}/${response.processed_count} successful`));
+        };
+        
+        worker.once("batch_completed", handleBatchResult);
+        worker.generateBatch(batchRequests, batchId);
       }
     }
+
+    // Continue processing if there are more requests and workers
+    if (this.requestQueue.length > 0) {
+      console.log(chalk.cyan(`🔄 Still ${this.requestQueue.length} requests remaining, continuing`));
+      // Use a small delay to prevent infinite loops
+      setTimeout(() => this.processBatchQueue(), 10);
+    } else {
+      console.log(chalk.green(`✅ All requests processed`));
+    }
+  }
+
+  private groupCompatibleRequests(): QueuedRequest[][] {
+    if (this.requestQueue.length === 0) {
+      return [];
+    }
+
+    const batches: QueuedRequest[][] = [];
+    const remaining = [...this.requestQueue];
+    
+    // Clear the queue as we're processing all items
+    this.requestQueue.length = 0;
+
+    while (remaining.length > 0) {
+      const batch: QueuedRequest[] = [];
+      const baseRequest = remaining.shift()!;
+      batch.push(baseRequest);
+
+      // Find compatible requests for this batch
+      let i = 0;
+      while (i < remaining.length && batch.length < this.batchConfig.maxSize) {
+        const candidate = remaining[i];
+        
+        if (this.areRequestsCompatible(baseRequest.request, candidate.request)) {
+          batch.push(candidate);
+          remaining.splice(i, 1);
+        } else {
+          i++;
+        }
+      }
+
+      batches.push(batch);
+    }
+
+    return batches;
+  }
+
+  private areRequestsCompatible(req1: WorkerRequest, req2: WorkerRequest): boolean {
+    const voice1 = req1.voice_settings || {};
+    const voice2 = req2.voice_settings || {};
+
+    // Check if voice settings are compatible
+    const compatibilityKeys = ["voice", "checkpointPath", "speed", "pitch", "emotion", "style"];
+    for (const key of compatibilityKeys) {
+      if (voice1[key] !== voice2[key]) {
+        return false;
+      }
+    }
+
+    // Check text length constraints
+    const text1Length = req1.text?.length || 0;
+    const text2Length = req2.text?.length || 0;
+    if (text1Length + text2Length > this.batchConfig.maxTextLength) {
+      return false;
+    }
+
+    return true;
   }
 
   getStatus(): any {
@@ -433,6 +700,12 @@ export class WorkerManager extends EventEmitter {
   shutdown(): void {
     console.log(chalk.yellow(`🛑 WorkerManager: Shutting down ${this.workers.size} workers...`));
     
+    // Clear batch timer
+    if (this.batchTimer) {
+      clearTimeout(this.batchTimer);
+      this.batchTimer = null;
+    }
+    
     for (const worker of this.workers.values()) {
       worker.shutdown();
     }
@@ -448,6 +721,11 @@ export class WorkerManager extends EventEmitter {
       });
     }
     this.pendingRequests.clear();
+    
+    // Clear queued requests
+    for (const queuedRequest of this.requestQueue) {
+      queuedRequest.reject(new Error("WorkerManager shutting down"));
+    }
     this.requestQueue.length = 0;
 
     setTimeout(() => {

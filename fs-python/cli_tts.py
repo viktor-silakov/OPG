@@ -12,6 +12,9 @@ import hashlib
 import json
 from huggingface_hub import snapshot_download
 
+# Global cache for VQGAN model path to avoid repeated downloads
+_vqgan_model_cache = {}
+
 def get_directory_size(directory):
     """Returns the size of the directory in MB"""
     total_size = 0
@@ -79,25 +82,59 @@ def save_tokens_to_cache(tokens_file, cache_key, cache_dir):
         return None
 
 def clear_semantic_cache():
-    """Clears the semantic tokens cache"""
-    cache_dir = Path("cache/semantic_tokens")
-    if not cache_dir.exists():
-        print("📭 Cache is empty")
-        return
+    """Clear semantic token cache"""
+    cache_dir = setup_cache_dir()
+    if cache_dir and cache_dir.exists():
+        try:
+            shutil.rmtree(cache_dir)
+            print(f"🗑️ Semantic cache cleared: {cache_dir}")
+            return True
+        except Exception as e:
+            print(f"❌ Error clearing cache: {e}")
+            return False
+    return True
+
+def get_vqgan_model_path(checkpoints_dir):
+    """Get VQGAN model path with caching to avoid repeated downloads"""
+    global _vqgan_model_cache
     
-    files_count = len(list(cache_dir.glob("*.npy")))
-    cache_size = get_directory_size(cache_dir)
+    checkpoints_dir = Path(checkpoints_dir)
+    cache_key = str(checkpoints_dir.resolve())
     
-    if files_count == 0:
-        print("📭 Cache is empty")
-        return
+    # Check if already cached
+    if cache_key in _vqgan_model_cache:
+        return _vqgan_model_cache[cache_key]
     
+    # Check if VQGAN exists in custom model
+    vqgan_file = checkpoints_dir / "firefly-gan-vq-fsq-8x1024-21hz-generator.pth"
+    if vqgan_file.exists():
+        _vqgan_model_cache[cache_key] = checkpoints_dir
+        return checkpoints_dir
+    
+    # Need to get VQGAN from base model - do this only once
+    print("🔄 Custom model: getting VQGAN from base model (one-time setup)...")
     try:
-        shutil.rmtree(cache_dir)
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        print(f"🗑️ Cache cleared: {files_count} files ({cache_size:.1f} MB)")
+        from huggingface_hub import snapshot_download
+        base_model_path = snapshot_download(
+            repo_id="fishaudio/fish-speech-1.5",
+            repo_type="model"
+        )
+        vqgan_model_path = Path(base_model_path)
+        print(f"✅ VQGAN model cached: {vqgan_model_path}")
+        
+        # Cache the result
+        _vqgan_model_cache[cache_key] = vqgan_model_path
+        return vqgan_model_path
+        
     except Exception as e:
-        print(f"❌ Cache clearing error: {e}")
+        print(f"❌ Base model retrieval error for VQGAN: {e}")
+        return None
+
+def clear_vqgan_cache():
+    """Clear VQGAN model path cache"""
+    global _vqgan_model_cache
+    _vqgan_model_cache.clear()
+    print("🗑️ VQGAN model cache cleared")
 
 def setup_fish_speech(model_version="1.5", custom_model_path=None):
     """Checks and sets up Fish Speech"""
@@ -288,22 +325,12 @@ def synthesize_speech_cli(text, output_path="output.wav", device="mps", prompt_t
     
     # Define paths for semantic and VQGAN models
     semantic_model_path = checkpoints_dir
-    vqgan_model_path = checkpoints_dir
     
-    # If using a custom model, need to get VQGAN from base model
-    if not (checkpoints_dir / "firefly-gan-vq-fsq-8x1024-21hz-generator.pth").exists():
-        print("🔄 Custom model: getting VQGAN from base model...")
-        try:
-            from huggingface_hub import snapshot_download
-            base_model_path = snapshot_download(
-                repo_id="fishaudio/fish-speech-1.5",
-                repo_type="model"
-            )
-            vqgan_model_path = Path(base_model_path)
-            print(f"✅ VQGAN model: {vqgan_model_path}")
-        except Exception as e:
-            print(f"❌ Base model retrieval error for VQGAN: {e}")
-            return False
+    # Get VQGAN model path with caching (avoids repeated downloads)
+    vqgan_model_path = get_vqgan_model_path(checkpoints_dir)
+    if vqgan_model_path is None:
+        print("❌ Failed to obtain VQGAN model")
+        return False
     
     # Cache setup
     cache_dir = setup_cache_dir() if use_cache else None

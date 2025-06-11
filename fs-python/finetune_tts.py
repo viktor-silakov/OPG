@@ -130,7 +130,7 @@ def prepare_dataset_structure(input_dir, output_dir):
     
     return files_processed > 0
 
-def extract_semantic_tokens(data_dir, checkpoints_dir, batch_size=16, num_workers=1, device="auto"):
+def extract_semantic_tokens(data_dir, checkpoints_dir, batch_size=16, num_workers=16, device="auto"):
     """Extracts semantic tokens from audio"""
     print_status("Extracting semantic tokens", "🔬")
     
@@ -235,6 +235,35 @@ def build_protobuf_dataset(data_dir, output_dir="data/protos", num_workers=16):
         print_status(f"❌ Error: {e}", "❌")
         return False
 
+def count_dataset_samples(data_dir):
+    """Counts number of training samples in dataset"""
+    data_path = Path(data_dir)
+    if not data_path.exists():
+        return 0
+    
+    # Count .lab files (text files that indicate training samples)
+    lab_files = list(data_path.rglob("*.lab"))
+    return len(lab_files)
+
+def calculate_and_display_epochs(data_dir, max_steps, batch_size):
+    """Calculates and displays estimated number of epochs"""
+    sample_count = count_dataset_samples(data_dir)
+    
+    if sample_count == 0:
+        print_status("⚠️ No training samples found in dataset", "⚠️")
+        return
+    
+    # Calculate approximate epochs
+    steps_per_epoch = max(1, sample_count // batch_size)
+    estimated_epochs = max_steps / steps_per_epoch if steps_per_epoch > 0 else 0
+    
+    print_status("📊 Dataset Information:", "📊")
+    print_status(f"   • Training samples: {sample_count}", "📊")
+    print_status(f"   • Steps per epoch: ~{steps_per_epoch}", "📊")
+    print_status(f"✅ Estimated epochs: ~{estimated_epochs:.1f}", "✅")
+    print_status(f"✅ Total training steps: {max_steps}", "✅")
+    print()
+
 def start_finetuning(project_name, checkpoints_dir, 
                     lora_config="r_8_alpha_16", 
                     max_steps=1000,
@@ -248,6 +277,31 @@ def start_finetuning(project_name, checkpoints_dir,
         print_status(f"Resuming fine-tuning project: {project_name} from checkpoint", "🔄")
     else:
         print_status(f"Starting fine-tuning project: {project_name}", "🚀")
+    
+    # Calculate and display estimated epochs
+    data_dir = Path("data") / project_name
+    if not data_dir.exists():
+        # Try to find protobuf dataset
+        proto_dir = Path("fish-speech/data/protos")
+        if proto_dir.exists():
+            # Use sample count from protobuf files if available
+            proto_files = list(proto_dir.glob("*.protos"))
+            if proto_files:
+                print_status("📊 Using protobuf dataset for epoch calculation", "📊")
+                # Estimate samples from protobuf files (rough approximation)
+                total_size = sum(f.stat().st_size for f in proto_files)
+                estimated_samples = max(1, total_size // (1024 * 50))  # Rough estimate: 50KB per sample
+                steps_per_epoch = max(1, estimated_samples // batch_size)
+                estimated_epochs = max_steps / steps_per_epoch if steps_per_epoch > 0 else 0
+                
+                print_status("📊 Dataset Information:", "📊")
+                print_status(f"   • Estimated training samples: ~{estimated_samples}", "📊")
+                print_status(f"   • Steps per epoch: ~{steps_per_epoch}", "📊")
+                print_status(f"✅ Estimated epochs: ~{estimated_epochs:.1f}", "✅")
+                print_status(f"✅ Total training steps: {max_steps}", "✅")
+                print()
+    else:
+        calculate_and_display_epochs(data_dir, max_steps, batch_size)
     
     fish_speech_dir = Path("fish-speech")
     

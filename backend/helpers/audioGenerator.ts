@@ -17,10 +17,20 @@ const MODEL_VERSION = process.env.MODEL_VERSION || "1.5";
 const MODEL_PATH = process.env.MODEL_PATH;
 const SEMANTIC_TOKEN_CACHE = process.env.SEMANTIC_TOKEN_CACHE !== "false"; // Default to true
 
+// Batching configuration - TEMPORARILY DISABLED due to hanging issue
+const ENABLE_BATCHING = process.env.ENABLE_BATCHING === "true"; // Changed default to false
+const MAX_BATCH_SIZE = parseInt(process.env.MAX_BATCH_SIZE || "4");
+const BATCH_TIMEOUT_MS = parseInt(process.env.BATCH_TIMEOUT_MS || "500");
+const MAX_BATCH_TEXT_LENGTH = parseInt(process.env.MAX_BATCH_TEXT_LENGTH || "2000");
+
 async function initializeWorkerManager(): Promise<WorkerManager> {
   if (!workerManager) {
     console.log(chalk.blue(`🚀 Initializing WorkerManager with ${CONCURRENT_REQUESTS} workers`));
     console.log(chalk.gray(`   Semantic token cache: ${SEMANTIC_TOKEN_CACHE ? "enabled" : "disabled"}`));
+    console.log(chalk.gray(`   Batching: ${ENABLE_BATCHING ? "enabled" : "disabled"}`));
+    if (ENABLE_BATCHING) {
+      console.log(chalk.gray(`   Batch settings: max_size=${MAX_BATCH_SIZE}, timeout=${BATCH_TIMEOUT_MS}ms, max_text=${MAX_BATCH_TEXT_LENGTH}`));
+    }
     
     workerManager = new WorkerManager(CONCURRENT_REQUESTS, DEVICE, MODEL_VERSION, MODEL_PATH, SEMANTIC_TOKEN_CACHE);
     
@@ -148,6 +158,9 @@ export async function processMessageChunks(
 
   console.log(`🎬 Processing ${totalMessages} messages using WorkerManager`);
 
+  // Start timing audio generation
+  const audioGenerationStartTime = Date.now();
+
   // Initialize WorkerManager
   const manager = await initializeWorkerManager();
   
@@ -197,6 +210,10 @@ export async function processMessageChunks(
   // Wait for all generations to complete
   const results = await Promise.all(generationPromises);
   
+  // Calculate total audio generation time
+  const audioGenerationEndTime = Date.now();
+  const totalAudioGenerationTime = (audioGenerationEndTime - audioGenerationStartTime) / 1000;
+  
   // Collect successful files
   results.forEach(filePath => {
     if (filePath) {
@@ -207,6 +224,19 @@ export async function processMessageChunks(
   console.log(
     `🎉 Processing completed. Successfully: ${generatedFiles.length} of ${totalMessages}`
   );
+  
+  // Print total audio generation time
+  console.log(chalk.green(
+    `⏱️  Total audio generation time: ${totalAudioGenerationTime.toFixed(2)} seconds`
+  ));
+  
+  // Print average time per message if successful
+  if (generatedFiles.length > 0) {
+    const avgTimePerMessage = totalAudioGenerationTime / generatedFiles.length;
+    console.log(chalk.blue(
+      `📊 Average time per message: ${avgTimePerMessage.toFixed(2)} seconds`
+    ));
+  }
   
   // Print WorkerManager statistics
   const finalStatus = manager.getStatus();

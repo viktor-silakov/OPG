@@ -11,7 +11,8 @@
     "install-backend": "cd backend && npm install",
     "install-frontend": "cd frontend && npm install",
     "build": "cd frontend && npm run build",
-    "clear:cache": "rimraf fs-python/cache"
+    "clear:cache": "rimraf fs-python/cache",
+    "benchmark": "npx tsx benchmark/benchmark.ts"
   },
   "keywords": [
     "podcast",

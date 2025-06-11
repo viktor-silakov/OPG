@@ -178,9 +178,10 @@ Most commands are listed in [docs/COMMANDS.md](./docs/COMMANDS.md). Main command
 
 ```bash
 yarn start         # Start backend + frontend
-yarn server    # Start backend only
-yarn frontend  # Start frontend only
-yarn build     # Build frontend for production
+yarn server        # Start backend only
+yarn frontend      # Start frontend only
+yarn build         # Build frontend for production
+yarn benchmark     # Run audio batching benchmark
 ```
 
 ### How to Create a New Voice
@@ -208,6 +209,19 @@ fs-python/voices/
 ├── RU_Male_MyVoice.txt    # Text transcription  
 └── RU_Male_MyVoice.npy    # Voice tokens
 ```
+
+## 📊 Performance Benchmark
+
+Test different audio batching configurations to optimize performance:
+
+```bash
+# Run benchmark to find optimal batching settings
+yarn benchmark
+```
+
+The benchmark tests various configurations including concurrency levels, batch sizes, and timeouts to help you find the best settings for your system.
+
+**Full documentation**: [docs/BENCHMARK.md](./docs/BENCHMARK.md)
 
 ## Documentation
 
