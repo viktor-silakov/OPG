@@ -148,3 +148,8 @@ fs-python/training_data/
 .env.backup.1749052604725
 backend/conversation.json
 fs-python/training_configs/
+parsed_data/
+prepared_training_data/
+results/
+tuned_models/
+checkpoints/
