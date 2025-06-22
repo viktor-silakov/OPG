@@ -44,6 +44,19 @@ for i in range(4):
 SEMANTIC_TOKEN_TEMPLATE = "<|semantic:{i}|>"
 SEMANTIC_TOKENS = [SEMANTIC_TOKEN_TEMPLATE.format(i=i) for i in range(1024)]
 
+EMOTION_JOYFUL_TOKEN = "(joyful)"
+EMOTION_SAD_TOKEN = "(sad)"
+EMOTION_ANGRY_TOKEN = "(angry)"
+EMOTION_SCARED_TOKEN = "(scared)"
+EMOTION_SURPRISED_TOKEN = "(surprised)"
+EMOTION_TOKENS = [
+    EMOTION_JOYFUL_TOKEN,
+    EMOTION_SAD_TOKEN,
+    EMOTION_ANGRY_TOKEN,
+    EMOTION_SCARED_TOKEN,
+    EMOTION_SURPRISED_TOKEN,
+]
+
 # Warning: when you add a new special token, you should only add it to the end of the list.
 ALL_SPECIAL_TOKENS = [
     BOS_TOKEN,
@@ -59,6 +72,7 @@ ALL_SPECIAL_TOKENS = [
     MODALITY_VOICE_TOKEN,
     MODALITY_INTERLEAVE_TOKEN,
     *SEMANTIC_TOKENS,
+    *EMOTION_TOKENS,
 ]
 
 

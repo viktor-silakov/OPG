@@ -473,6 +473,11 @@ def start_finetuning(
     # Add epoch/step limit based on provided parameters
     if max_epochs is not None:
         cmd.append(f"trainer.max_epochs={max_epochs}")
+        # Force deterministic epoch length when using epochs
+        if total_samples > 0:
+            estimated_steps = max(1, total_samples // batch_size)
+            cmd.append(f"trainer.limit_train_batches={estimated_steps}")
+            print_status(f"🔒 Limiting to {estimated_steps} steps per epoch", "🔒")
     else:
         cmd.append(f"trainer.max_steps={max_steps}")
 
@@ -538,7 +543,12 @@ def start_finetuning(
         samples_processed = 0
         for line in process.stdout:
             line_clean = line.rstrip()
-            print(line_clean)
+
+            # Check if this is a validation results line with metrics
+            is_validation_metrics = (
+                "val/loss=" in line_clean and 
+                ("train/loss=" in line_clean or "v_num=" in line_clean)
+            )
             
             # Extract step information from Lightning logs for progress tracking
             if "Epoch" in line_clean and "|" in line_clean and "/" in line_clean:
@@ -549,16 +559,54 @@ def start_finetuning(
                         step_info = parts[2].strip().split("/")[0].strip()
                         if step_info.isdigit():
                             current_step = int(step_info)
-                            if total_samples > 0:
-                                samples_processed = current_step * batch_size
-                                progress_pct = min(100, (samples_processed / total_samples) * 100)
-                                print_status(
-                                    f"📊 Progress: {samples_processed}/{total_samples} samples "
-                                    f"({progress_pct:.1f}%) - Step {current_step}",
-                                    "📊"
-                                )
+
+                            # Only show progress every 10 steps OR if it contains validation metrics
+                            if (current_step > 0 and current_step % 10 == 0) or is_validation_metrics:
+                                print(line_clean)
+                                if total_samples > 0 and current_step % 10 == 0:
+                                    samples_processed = current_step * batch_size
+                                    progress_pct = min(
+                                        100, (samples_processed / total_samples) * 100
+                                    )
+                                    print_status(
+                                        f"📊 Progress: {samples_processed}/{total_samples} samples "
+                                        f"({progress_pct:.1f}%) - Step {current_step}",
+                                        "📊",
+                                    )
+                                # Pause for 2 seconds only after regular progress updates
+                                if current_step % 10 == 0 and not is_validation_metrics:
+                                    time.sleep(2)
+                        else:
+                            print(line_clean)
+                    else:
+                        print(line_clean)
                 except (ValueError, IndexError):
-                    pass  # Skip if parsing fails
+                    print(line_clean)  # Print if parsing fails
+            elif is_validation_metrics:
+                # Always show validation metrics lines
+                print(line_clean)
+            elif "Validation DataLoader" in line_clean and "100%" in line_clean:
+                # Show completion of validation
+                print(line_clean)
+            else:
+                # Skip most other lines to reduce clutter, but show important ones
+                if any(keyword in line_clean for keyword in [
+                    "Starting training", "Training completed", "Error", "Warning", 
+                    "Saving checkpoint", "Best model", "Early stopping"
+                ]):
+                    print(line_clean)
+
+            # В коде finetune_tts.py можно добавить мониторинг
+            if device == "mps":
+                # Для Apple Silicon - периодическая очистка памяти
+                if current_step % mps_cleanup_steps == 0:
+                    torch.mps.empty_cache()
+                    gc.collect()
+
+            elif device == "cuda":
+                # Для NVIDIA GPU
+                if current_step % 50 == 0:
+                    torch.cuda.empty_cache()
 
         process.wait()
 

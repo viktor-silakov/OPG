@@ -1,10 +1,10 @@
 #!/bin/bash
-
+export DT_DIR=/Users/a1/Project/OPG/prepared_training_data/joyful
 count=0
 total=0
-total_files=$(find /Users/a1/Project/AUDIO/neutral -name "*.wav" | wc -l)
+total_files=$(find $DT_DIR -name "*.wav" | wc -l)
 echo "Total files to process: $total_files"
-find /Users/a1/Project/AUDIO/neutral -name "*.wav" | while read -r file; do
+find $DT_DIR -name "*.wav" | while read -r file; do
     dur=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$file")
     total=$(echo "$total + $dur" | bc)
     count=$((count+1))
