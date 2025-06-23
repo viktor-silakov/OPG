@@ -1,0 +1,80 @@
+{
+  "test_timestamp": "2025-06-23 19:17:58",
+  "test_config": {
+    "initial_project": "e2e_test_initial",
+    "resume_project": "e2e_test_resume",
+    "initial_steps": 5,
+    "resume_steps": 8,
+    "batch_size": 1,
+    "learning_rate": 0.0001,
+    "voices_tested": [
+      "RU_Google_Female_Zephyr",
+      "RU_Google_Male_Achird",
+      "RU_Google_Female_Zephyr"
+    ],
+    "inference_texts": [
+      "(joyful)\u041f\u0440\u0438\u0432\u0435\u0442! \u042d\u0442\u043e \u0442\u0435\u0441\u0442 \u043e\u0431\u0443\u0447\u0435\u043d\u043d\u043e\u0439 \u043c\u043e\u0434\u0435\u043b\u0438.",
+      "(surprised)\u041d\u0435\u043e\u0436\u0438\u0434\u0430\u043d\u043d\u043e, \u043d\u043e \u044d\u0442\u043e \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442!(sad)\u0416\u0430\u043b\u044c \u043d\u0438\u043a\u0442\u043e \u043d\u0435 \u043f\u0440\u0438\u0448\u0435\u043b!"
+    ]
+  },
+  "training_results": {
+    "initial_checkpoint": "/Users/a1/Project/OPG/checkpoints/e2e_test_initial/checkpoints/step_000000003.ckpt",
+    "resume_checkpoint": "/Users/a1/Project/OPG/checkpoints/e2e_test_resume/checkpoints/step_000000006.ckpt",
+    "initial_checkpoint_size_mb": 70.96,
+    "resume_checkpoint_size_mb": 70.96
+  },
+  "inference_results": {
+    "total_tests": 4,
+    "passed_tests": 4,
+    "success_rate": 100.0,
+    "average_inference_time_sec": 37.15,
+    "audio_files_generated": 4,
+    "detailed_results": [
+      {
+        "success": true,
+        "duration": 38.53824424743652,
+        "file_size": 319532,
+        "output_file": "/Users/a1/Project/OPG/fs-python/tests/data/inference_outputs/initial_test_1_RU_Google_Female_Zephyr.wav",
+        "error": null,
+        "checkpoint_type": "initial",
+        "project_name": "e2e_test_initial",
+        "test_text": "(joyful)\u041f\u0440\u0438\u0432\u0435\u0442! \u042d\u0442\u043e \u0442\u0435\u0441\u0442 \u043e\u0431\u0443\u0447\u0435\u043d\u043d\u043e\u0439 \u043c\u043e\u0434\u0435\u043b\u0438.",
+        "voice_name": "RU_Google_Female_Zephyr"
+      },
+      {
+        "success": true,
+        "duration": 41.28303003311157,
+        "file_size": 544812,
+        "output_file": "/Users/a1/Project/OPG/fs-python/tests/data/inference_outputs/initial_test_2_RU_Google_Male_Achird.wav",
+        "error": null,
+        "checkpoint_type": "initial",
+        "project_name": "e2e_test_initial",
+        "test_text": "(surprised)\u041d\u0435\u043e\u0436\u0438\u0434\u0430\u043d\u043d\u043e, \u043d\u043e \u044d\u0442\u043e \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442!(sad)\u0416\u0430\u043b\u044c \u043d\u0438\u043a\u0442\u043e \u043d\u0435 \u043f\u0440\u0438\u0448\u0435\u043b!",
+        "voice_name": "RU_Google_Male_Achird"
+      },
+      {
+        "success": true,
+        "duration": 35.27860403060913,
+        "file_size": 258092,
+        "output_file": "/Users/a1/Project/OPG/fs-python/tests/data/inference_outputs/resume_test_1_RU_Google_Female_Zephyr.wav",
+        "error": null,
+        "checkpoint_type": "resume",
+        "project_name": "e2e_test_resume",
+        "test_text": "(joyful)\u041f\u0440\u0438\u0432\u0435\u0442! \u042d\u0442\u043e \u0442\u0435\u0441\u0442 \u043e\u0431\u0443\u0447\u0435\u043d\u043d\u043e\u0439 \u043c\u043e\u0434\u0435\u043b\u0438.",
+        "voice_name": "RU_Google_Female_Zephyr"
+      },
+      {
+        "success": true,
+        "duration": 33.51859402656555,
+        "file_size": 323628,
+        "output_file": "/Users/a1/Project/OPG/fs-python/tests/data/inference_outputs/resume_test_2_RU_Google_Male_Achird.wav",
+        "error": null,
+        "checkpoint_type": "resume",
+        "project_name": "e2e_test_resume",
+        "test_text": "(surprised)\u041d\u0435\u043e\u0436\u0438\u0434\u0430\u043d\u043d\u043e, \u043d\u043e \u044d\u0442\u043e \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442!(sad)\u0416\u0430\u043b\u044c \u043d\u0438\u043a\u0442\u043e \u043d\u0435 \u043f\u0440\u0438\u0448\u0435\u043b!",
+        "voice_name": "RU_Google_Male_Achird"
+      }
+    ]
+  },
+  "status": "PASSED"
+}

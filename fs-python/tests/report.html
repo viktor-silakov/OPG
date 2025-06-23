@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>report.html</title>
+    <style>body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  /* do not increase min-width as some may use split screens */
+  min-width: 800px;
+  color: #999;
+}
+
+h1 {
+  font-size: 24px;
+  color: black;
+}
+
+h2 {
+  font-size: 16px;
+  color: black;
+}
+
+p {
+  color: black;
+}
+
+a {
+  color: #999;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+/******************************
+ * SUMMARY INFORMATION
+ ******************************/
+#environment td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+}
+#environment tr:nth-child(odd) {
+  background-color: #f6f6f6;
+}
+
+/******************************
+ * TEST RESULT COLORS
+ ******************************/
+span.passed,
+.passed .col-result {
+  color: green;
+}
+
+span.skipped,
+span.xfailed,
+span.rerun,
+.skipped .col-result,
+.xfailed .col-result,
+.rerun .col-result {
+  color: orange;
+}
+
+span.error,
+span.failed,
+span.xpassed,
+.error .col-result,
+.failed .col-result,
+.xpassed .col-result {
+  color: red;
+}
+
+/******************************
+ * RESULTS TABLE
+ *
+ * 1. Table Layout
+ * 2. Extra
+ * 3. Sorting items
+ *
+ ******************************/
+/*------------------
+ * 1. Table Layout
+ *------------------*/
+#results-table {
+  border: 1px solid #e6e6e6;
+  color: #999;
+  font-size: 12px;
+  width: 100%;
+}
+#results-table th,
+#results-table td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+  text-align: left;
+}
+#results-table th {
+  font-weight: bold;
+}
+
+/*------------------
+ * 2. Extra
+ *------------------*/
+.log {
+  background-color: #e6e6e6;
+  border: 1px solid #e6e6e6;
+  color: black;
+  display: block;
+  font-family: "Courier New", Courier, monospace;
+  height: 230px;
+  overflow-y: scroll;
+  padding: 5px;
+  white-space: pre-wrap;
+}
+.log:only-child {
+  height: inherit;
+}
+
+div.image {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.image img {
+  width: 320px;
+}
+
+div.video {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.video video {
+  overflow: hidden;
+  width: 320px;
+  height: 240px;
+}
+
+.collapsed {
+  display: none;
+}
+
+.expander::after {
+  content: " (show details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.collapser::after {
+  content: " (hide details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+/*------------------
+ * 3. Sorting items
+ *------------------*/
+.sortable {
+  cursor: pointer;
+}
+
+.sort-icon {
+  font-size: 0px;
+  float: left;
+  margin-right: 5px;
+  margin-top: 5px;
+  /*triangle*/
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+}
+.inactive .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #E6E6E6;
+}
+.asc.active .sort-icon {
+  /*finish triangle*/
+  border-bottom: 8px solid #999;
+}
+.desc.active .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #999;
+}
+</style></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>report.html</h1>
+    <p>Report generated on 23-Jun-2025 at 19:12:22 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Summary</h2>
+    <p>1 tests ran in 368.23 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">1 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_e2e_training.py::TestE2ETraining::test_full_e2e_workflow</td>
+          <td class="col-duration">367.56</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>🐟 Starting Fish Speech E2E Training Test
+==================================================
+🔧 Setting up real Russian voice data...
+✅ Copied voice: RU_Google_Female_Zephyr (npy: 32KB)
+✅ Copied voice: RU_Male_Goblin_Puchkov (npy: 80KB)
+✅ Copied voice: RU_Google_Male_Achird (npy: 34KB)
+✅ Real Russian voice data prepared: 3/3 voices
+🔍 Running system checks...
+🔍 Checking system requirements
+✅ ✅ MPS (Apple Silicon) is available
+✅ ✅ All requirements are met
+✅ System checks passed
+🎭 Verifying emotional tokens...
+✅ All 5 emotional tokens verified
+🚀 Starting initial training: e2e_test_initial
+📁 Using prepared semantic tokens directly: /Users/a1/Project/OPG/fs-python/tests/data/prepared
+✅ Prepared voice: RU_Google_Female_Zephyr
+✅ Prepared voice: RU_Male_Goblin_Puchkov
+✅ Prepared voice: RU_Google_Male_Achird
+✅ Prepared 3/3 voices with semantic tokens
+🚀 Starting fine-tuning project: e2e_test_initial
+📊 📊 Estimated training samples: ~164
+📈 📈 Steps per epoch: 164
+📈 📈 Max steps: 5
+⚠️ ⚠️ No training samples found in dataset
+🆕 🆕 Starting from base model: /Users/a1/.cache/huggingface/hub/models--fishaudio--fish-speech-1.5/snapshots/275a984d33c33659e39eed41ff5bcd6e67517f4c
+🔧 🔧 Using optimized settings for memory economy:
+🆕    • Mode: New training from base model
+💻    • Device: mps
+📊    • Batch size: 1
+👷    • Data workers: 0
+📏    • Maximum length: 512 tokens
+📈    • Maximum steps: 5
+🎯    • Learning rate: 0.0001
+🔧    • LoRA config: r_8_alpha_16
+💡 💡 All our BFloat16→Float32 conversions are already applied in the code
+🖥️ Training command:
+/Users/a1/Project/OPG/fs-python/.venv/bin/python fish_speech/train.py --config-name text2semantic_finetune project=e2e_test_initial +lora@model.model.lora_config=r_8_alpha_16 data.batch_size=1 model.optimizer.lr=0.0001 trainer.accelerator=mps trainer.devices=1 trainer.strategy=auto data.num_workers=0 paths.run_dir=/Users/a1/Project/OPG/checkpoints/e2e_test_initial paths.ckpt_dir=/Users/a1/Project/OPG/checkpoints/e2e_test_initial/checkpoints data.max_length=512 pretrained_ckpt_path=/Users/a1/.cache/huggingface/hub/models--fishaudio--fish-speech-1.5/snapshots/275a984d33c33659e39eed41ff5bcd6e67517f4c trainer.val_check_interval=3 trainer.max_steps=5 callbacks.learning_rate_monitor.logging_interval=step
+
+▶️ ▶️ Starting training...
+⚠️ ⚠️ If process is killed (-9), try reducing batch_size
+⚠️ Press Ctrl+C to stop
+[2025-06-23 19:06:33,465][__main__][INFO] - [rank: 0] Starting training!
+Validation DataLoader 0: 100%|██████████| 10/10 [00:07&lt;00:00,  1.30it/s][A
+Epoch 0:  60%|██████    | 3/5 [00:13&lt;00:08,  0.22it/s, v_num=0, train/loss=8.570, train/top_5_accuracy=0.371, val/loss=8.720, val/top_5_accuracy=0.375]
+Epoch 0:  80%|████████  | 4/5 [00:14&lt;00:03,  0.27it/s, v_num=0, train/loss=8.570, train/top_5_accuracy=0.371, val/loss=8.720, val/top_5_accuracy=0.375]
+Epoch 0:  80%|████████  | 4/5 [00:14&lt;00:03,  0.27it/s, v_num=0, train/loss=9.190, train/top_5_accuracy=0.322, val/loss=8.720, val/top_5_accuracy=0.375]
+Epoch 0: 100%|██████████| 5/5 [00:16&lt;00:00,  0.31it/s, v_num=0, train/loss=9.190, train/top_5_accuracy=0.322, val/loss=8.720, val/top_5_accuracy=0.375]
+Epoch 0: 100%|██████████| 5/5 [00:16&lt;00:00,  0.31it/s, v_num=0, train/loss=8.920, train/top_5_accuracy=0.363, val/loss=8.720, val/top_5_accuracy=0.375]
+Epoch 0: 100%|██████████| 5/5 [00:16&lt;00:00,  0.31it/s, v_num=0, train/loss=8.920, train/top_5_accuracy=0.363, val/loss=8.720, val/top_5_accuracy=0.375]`Trainer.fit` stopped: `max_steps=5` reached.
+Epoch 0: 100%|██████████| 5/5 [00:16&lt;00:00,  0.31it/s, v_num=0, train/loss=8.920, train/top_5_accuracy=0.363, val/loss=8.720, val/top_5_accuracy=0.375]
+✅ ✅ Training completed successfully!
+📁 📁 Checkpoints saved in: /Users/a1/Project/OPG/checkpoints/e2e_test_initial/checkpoints
+📄    📄 step_000000003.ckpt
+✅ Initial training completed, checkpoint: step_000000003.ckpt
+🔄 Starting resume training: e2e_test_resume
+🔄 Resuming fine-tuning project: e2e_test_resume from checkpoint
+📊 📊 Estimated training samples: ~164
+📈 📈 Steps per epoch: 164
+📈 📈 Max steps: 8
+⚠️ ⚠️ No training samples found in dataset
+📂 📂 Resuming from: /Users/a1/Project/OPG/checkpoints/e2e_test_initial/checkpoints/step_000000003.ckpt
+🔄 🔄 Resuming from checkpoint: /Users/a1/Project/OPG/checkpoints/e2e_test_initial/checkpoints/step_000000003.ckpt
+🔧 🔧 Using optimized settings for memory economy:
+🔄    • Mode: Resume training from checkpoint
+💻    • Device: mps
+📊    • Batch size: 1
+👷    • Data workers: 0
+📏    • Maximum length: 512 tokens
+📈    • Maximum steps: 8
+🎯    • Learning rate: 0.0001
+🔧    • LoRA config: r_8_alpha_16
+💡 💡 All our BFloat16→Float32 conversions are already applied in the code
+🖥️ Training command:
+/Users/a1/Project/OPG/fs-python/.venv/bin/python fish_speech/train.py --config-name text2semantic_finetune project=e2e_test_resume +lora@model.model.lora_config=r_8_alpha_16 data.batch_size=1 model.optimizer.lr=0.0001 trainer.accelerator=mps trainer.devices=1 trainer.strategy=auto data.num_workers=0 paths.run_dir=/Users/a1/Project/OPG/checkpoints/e2e_test_resume paths.ckpt_dir=/Users/a1/Project/OPG/checkpoints/e2e_test_resume/checkpoints data.max_length=512 +ckpt_path=/Users/a1/Project/OPG/checkpoints/e2e_test_initial/checkpoints/step_000000003.ckpt +resume_weights_only=true trainer.val_check_interval=3 trainer.max_steps=8 callbacks.learning_rate_monitor.logging_interval=step
+
+▶️ ▶️ Starting training...
+⚠️ ⚠️ If process is killed (-9), try reducing batch_size
+⚠️ Press Ctrl+C to stop
+[2025-06-23 19:07:15,573][__main__][INFO] - [rank: 0] Starting training!
+[2025-06-23 19:07:15,617][__main__][INFO] - [rank: 0] Error loading state dict: _IncompatibleKeys(missing_keys=[&#x27;model.embeddings.weight&#x27;, &#x27;model.codebook_embeddings.weight&#x27;, &#x27;model.layers.0.attention.wqkv.weight&#x27;, &#x27;model.layers.0.attention.wo.weight&#x27;, &#x27;model.layers.0.feed_forward.w1.weight&#x27;, &#x27;model.layers.0.feed_forward.w3.weight&#x27;, &#x27;model.layers.0.feed_forward.w2.weight&#x27;, &#x27;model.layers.0.ffn_norm.weight&#x27;, &#x27;model.layers.0.attention_norm.weight&#x27;, &#x27;model.layers.1.attention.wqkv.weight&#x27;, &#x27;model.layers.1.attention.wo.weight&#x27;, &#x27;model.layers.1.feed_forward.w1.weight&#x27;, &#x27;model.layers.1.feed_forward.w3.weight&#x27;, &#x27;model.layers.1.feed_forward.w2.weight&#x27;, &#x27;model.layers.1.ffn_norm.weight&#x27;, &#x27;model.layers.1.attention_norm.weight&#x27;, &#x27;model.layers.2.attention.wqkv.weight&#x27;, &#x27;model.layers.2.attention.wo.weight&#x27;, &#x27;model.layers.2.feed_forward.w1.weight&#x27;, &#x27;model.layers.2.feed_forward.w3.weight&#x27;, &#x27;model.layers.2.feed_forward.w2.weight&#x27;, &#x27;model.layers.2.ffn_norm.weight&#x27;, &#x27;model.layers.2.attention_norm.weight&#x27;, &#x27;model.layers.3.attention.wqkv.weight&#x27;, &#x27;model.layers.3.attention.wo.weight&#x27;, &#x27;model.layers.3.feed_forward.w1.weight&#x27;, &#x27;model.layers.3.feed_forward.w3.weight&#x27;, &#x27;model.layers.3.feed_forward.w2.weight&#x27;, &#x27;model.layers.3.ffn_norm.weight&#x27;, &#x27;model.layers.3.attention_norm.weight&#x27;, &#x27;model.layers.4.attention.wqkv.weight&#x27;, &#x27;model.layers.4.attention.wo.weight&#x27;, &#x27;model.layers.4.feed_forward.w1.weight&#x27;, &#x27;model.layers.4.feed_forward.w3.weight&#x27;, &#x27;model.layers.4.feed_forward.w2.weight&#x27;, &#x27;model.layers.4.ffn_norm.weight&#x27;, &#x27;model.layers.4.attention_norm.weight&#x27;, &#x27;model.layers.5.attention.wqkv.weight&#x27;, &#x27;model.layers.5.attention.wo.weight&#x27;, &#x27;model.layers.5.feed_forward.w1.weight&#x27;, &#x27;model.layers.5.feed_forward.w3.weight&#x27;, &#x27;model.layers.5.feed_forward.w2.weight&#x27;, &#x27;model.layers.5.ffn_norm.weight&#x27;, &#x27;model.layers.5.attention_norm.weight&#x27;, &#x27;model.layers.6.attention.wqkv.weight&#x27;, &#x27;model.layers.6.attention.wo.weight&#x27;, &#x27;model.layers.6.feed_forward.w1.weight&#x27;, &#x27;model.layers.6.feed_forward.w3.weight&#x27;, &#x27;model.layers.6.feed_forward.w2.weight&#x27;, &#x27;model.layers.6.ffn_norm.weight&#x27;, &#x27;model.layers.6.attention_norm.weight&#x27;, &#x27;model.layers.7.attention.wqkv.weight&#x27;, &#x27;model.layers.7.attention.wo.weight&#x27;, &#x27;model.layers.7.feed_forward.w1.weight&#x27;, &#x27;model.layers.7.feed_forward.w3.weight&#x27;, &#x27;model.layers.7.feed_forward.w2.weight&#x27;, &#x27;model.layers.7.ffn_norm.weight&#x27;, &#x27;model.layers.7.attention_norm.weight&#x27;, &#x27;model.layers.8.attention.wqkv.weight&#x27;, &#x27;model.layers.8.attention.wo.weight&#x27;, &#x27;model.layers.8.feed_forward.w1.weight&#x27;, &#x27;model.layers.8.feed_forward.w3.weight&#x27;, &#x27;model.layers.8.feed_forward.w2.weight&#x27;, &#x27;model.layers.8.ffn_norm.weight&#x27;, &#x27;model.layers.8.attention_norm.weight&#x27;, &#x27;model.layers.9.attention.wqkv.weight&#x27;, &#x27;model.layers.9.attention.wo.weight&#x27;, &#x27;model.layers.9.feed_forward.w1.weight&#x27;, &#x27;model.layers.9.feed_forward.w3.weight&#x27;, &#x27;model.layers.9.feed_forward.w2.weight&#x27;, &#x27;model.layers.9.ffn_norm.weight&#x27;, &#x27;model.layers.9.attention_norm.weight&#x27;, &#x27;model.layers.10.attention.wqkv.weight&#x27;, &#x27;model.layers.10.attention.wo.weight&#x27;, &#x27;model.layers.10.feed_forward.w1.weight&#x27;, &#x27;model.layers.10.feed_forward.w3.weight&#x27;, &#x27;model.layers.10.feed_forward.w2.weight&#x27;, &#x27;model.layers.10.ffn_norm.weight&#x27;, &#x27;model.layers.10.attention_norm.weight&#x27;, &#x27;model.layers.11.attention.wqkv.weight&#x27;, &#x27;model.layers.11.attention.wo.weight&#x27;, &#x27;model.layers.11.feed_forward.w1.weight&#x27;, &#x27;model.layers.11.feed_forward.w3.weight&#x27;, &#x27;model.layers.11.feed_forward.w2.weight&#x27;, &#x27;model.layers.11.ffn_norm.weight&#x27;, &#x27;model.layers.11.attention_norm.weight&#x27;, &#x27;model.layers.12.attention.wqkv.weight&#x27;, &#x27;model.layers.12.attention.wo.weight&#x27;, &#x27;model.layers.12.feed_forward.w1.weight&#x27;, &#x27;model.layers.12.feed_forward.w3.weight&#x27;, &#x27;model.layers.12.feed_forward.w2.weight&#x27;, &#x27;model.layers.12.ffn_norm.weight&#x27;, &#x27;model.layers.12.attention_norm.weight&#x27;, &#x27;model.layers.13.attention.wqkv.weight&#x27;, &#x27;model.layers.13.attention.wo.weight&#x27;, &#x27;model.layers.13.feed_forward.w1.weight&#x27;, &#x27;model.layers.13.feed_forward.w3.weight&#x27;, &#x27;model.layers.13.feed_forward.w2.weight&#x27;, &#x27;model.layers.13.ffn_norm.weight&#x27;, &#x27;model.layers.13.attention_norm.weight&#x27;, &#x27;model.layers.14.attention.wqkv.weight&#x27;, &#x27;model.layers.14.attention.wo.weight&#x27;, &#x27;model.layers.14.feed_forward.w1.weight&#x27;, &#x27;model.layers.14.feed_forward.w3.weight&#x27;, &#x27;model.layers.14.feed_forward.w2.weight&#x27;, &#x27;model.layers.14.ffn_norm.weight&#x27;, &#x27;model.layers.14.attention_norm.weight&#x27;, &#x27;model.layers.15.attention.wqkv.weight&#x27;, &#x27;model.layers.15.attention.wo.weight&#x27;, &#x27;model.layers.15.feed_forward.w1.weight&#x27;, &#x27;model.layers.15.feed_forward.w3.weight&#x27;, &#x27;model.layers.15.feed_forward.w2.weight&#x27;, &#x27;model.layers.15.ffn_norm.weight&#x27;, &#x27;model.layers.15.attention_norm.weight&#x27;, &#x27;model.layers.16.attention.wqkv.weight&#x27;, &#x27;model.layers.16.attention.wo.weight&#x27;, &#x27;model.layers.16.feed_forward.w1.weight&#x27;, &#x27;model.layers.16.feed_forward.w3.weight&#x27;, &#x27;model.layers.16.feed_forward.w2.weight&#x27;, &#x27;model.layers.16.ffn_norm.weight&#x27;, &#x27;model.layers.16.attention_norm.weight&#x27;, &#x27;model.layers.17.attention.wqkv.weight&#x27;, &#x27;model.layers.17.attention.wo.weight&#x27;, &#x27;model.layers.17.feed_forward.w1.weight&#x27;, &#x27;model.layers.17.feed_forward.w3.weight&#x27;, &#x27;model.layers.17.feed_forward.w2.weight&#x27;, &#x27;model.layers.17.ffn_norm.weight&#x27;, &#x27;model.layers.17.attention_norm.weight&#x27;, &#x27;model.layers.18.attention.wqkv.weight&#x27;, &#x27;model.layers.18.attention.wo.weight&#x27;, &#x27;model.layers.18.feed_forward.w1.weight&#x27;, &#x27;model.layers.18.feed_forward.w3.weight&#x27;, &#x27;model.layers.18.feed_forward.w2.weight&#x27;, &#x27;model.layers.18.ffn_norm.weight&#x27;, &#x27;model.layers.18.attention_norm.weight&#x27;, &#x27;model.layers.19.attention.wqkv.weight&#x27;, &#x27;model.layers.19.attention.wo.weight&#x27;, &#x27;model.layers.19.feed_forward.w1.weight&#x27;, &#x27;model.layers.19.feed_forward.w3.weight&#x27;, &#x27;model.layers.19.feed_forward.w2.weight&#x27;, &#x27;model.layers.19.ffn_norm.weight&#x27;, &#x27;model.layers.19.attention_norm.weight&#x27;, &#x27;model.layers.20.attention.wqkv.weight&#x27;, &#x27;model.layers.20.attention.wo.weight&#x27;, &#x27;model.layers.20.feed_forward.w1.weight&#x27;, &#x27;model.layers.20.feed_forward.w3.weight&#x27;, &#x27;model.layers.20.feed_forward.w2.weight&#x27;, &#x27;model.layers.20.ffn_norm.weight&#x27;, &#x27;model.layers.20.attention_norm.weight&#x27;, &#x27;model.layers.21.attention.wqkv.weight&#x27;, &#x27;model.layers.21.attention.wo.weight&#x27;, &#x27;model.layers.21.feed_forward.w1.weight&#x27;, &#x27;model.layers.21.feed_forward.w3.weight&#x27;, &#x27;model.layers.21.feed_forward.w2.weight&#x27;, &#x27;model.layers.21.ffn_norm.weight&#x27;, &#x27;model.layers.21.attention_norm.weight&#x27;, &#x27;model.layers.22.attention.wqkv.weight&#x27;, &#x27;model.layers.22.attention.wo.weight&#x27;, &#x27;model.layers.22.feed_forward.w1.weight&#x27;, &#x27;model.layers.22.feed_forward.w3.weight&#x27;, &#x27;model.layers.22.feed_forward.w2.weight&#x27;, &#x27;model.layers.22.ffn_norm.weight&#x27;, &#x27;model.layers.22.attention_norm.weight&#x27;, &#x27;model.layers.23.attention.wqkv.weight&#x27;, &#x27;model.layers.23.attention.wo.weight&#x27;, &#x27;model.layers.23.feed_forward.w1.weight&#x27;, &#x27;model.layers.23.feed_forward.w3.weight&#x27;, &#x27;model.layers.23.feed_forward.w2.weight&#x27;, &#x27;model.layers.23.ffn_norm.weight&#x27;, &#x27;model.layers.23.attention_norm.weight&#x27;, &#x27;model.norm.weight&#x27;, &#x27;model.output.weight&#x27;, &#x27;model.fast_embeddings.weight&#x27;, &#x27;model.fast_layers.0.attention.wqkv.weight&#x27;, &#x27;model.fast_layers.0.attention.wo.weight&#x27;, &#x27;model.fast_layers.0.feed_forward.w1.weight&#x27;, &#x27;model.fast_layers.0.feed_forward.w3.weight&#x27;, &#x27;model.fast_layers.0.feed_forward.w2.weight&#x27;, &#x27;model.fast_layers.0.ffn_norm.weight&#x27;, &#x27;model.fast_layers.0.attention_norm.weight&#x27;, &#x27;model.fast_layers.1.attention.wqkv.weight&#x27;, &#x27;model.fast_layers.1.attention.wo.weight&#x27;, &#x27;model.fast_layers.1.feed_forward.w1.weight&#x27;, &#x27;model.fast_layers.1.feed_forward.w3.weight&#x27;, &#x27;model.fast_layers.1.feed_forward.w2.weight&#x27;, &#x27;model.fast_layers.1.ffn_norm.weight&#x27;, &#x27;model.fast_layers.1.attention_norm.weight&#x27;, &#x27;model.fast_layers.2.attention.wqkv.weight&#x27;, &#x27;model.fast_layers.2.attention.wo.weight&#x27;, &#x27;model.fast_layers.2.feed_forward.w1.weight&#x27;, &#x27;model.fast_layers.2.feed_forward.w3.weight&#x27;, &#x27;model.fast_layers.2.feed_forward.w2.weight&#x27;, &#x27;model.fast_layers.2.ffn_norm.weight&#x27;, &#x27;model.fast_layers.2.attention_norm.weight&#x27;, &#x27;model.fast_layers.3.attention.wqkv.weight&#x27;, &#x27;model.fast_layers.3.attention.wo.weight&#x27;, &#x27;model.fast_layers.3.feed_forward.w1.weight&#x27;, &#x27;model.fast_layers.3.feed_forward.w3.weight&#x27;, &#x27;model.fast_layers.3.feed_forward.w2.weight&#x27;, &#x27;model.fast_layers.3.ffn_norm.weight&#x27;, &#x27;model.fast_layers.3.attention_norm.weight&#x27;, &#x27;model.fast_norm.weight&#x27;, &#x27;model.fast_output.weight&#x27;], unexpected_keys=[])
+Validation DataLoader 0: 100%|██████████| 10/10 [00:07&lt;00:00,  1.29it/s][A
+Epoch 0:  38%|███▊      | 3/8 [00:13&lt;00:22,  0.22it/s, v_num=0, train/loss=8.380, train/top_5_accuracy=0.403, val/loss=8.650, val/top_5_accuracy=0.374]
+Epoch 0:  50%|█████     | 4/8 [00:15&lt;00:15,  0.27it/s, v_num=0, train/loss=8.380, train/top_5_accuracy=0.403, val/loss=8.650, val/top_5_accuracy=0.374]
+Epoch 0:  50%|█████     | 4/8 [00:15&lt;00:15,  0.27it/s, v_num=0, train/loss=8.640, train/top_5_accuracy=0.384, val/loss=8.650, val/top_5_accuracy=0.374]
+Epoch 0:  62%|██████▎   | 5/8 [00:16&lt;00:09,  0.31it/s, v_num=0, train/loss=8.640, train/top_5_accuracy=0.384, val/loss=8.650, val/top_5_accuracy=0.374]
+Epoch 0:  62%|██████▎   | 5/8 [00:16&lt;00:09,  0.31it/s, v_num=0, train/loss=8.690, train/top_5_accuracy=0.368, val/loss=8.650, val/top_5_accuracy=0.374]
+Epoch 0:  75%|███████▌  | 6/8 [00:17&lt;00:05,  0.34it/s, v_num=0, train/loss=8.690, train/top_5_accuracy=0.368, val/loss=8.650, val/top_5_accuracy=0.374]
+Epoch 0:  75%|███████▌  | 6/8 [00:17&lt;00:05,  0.34it/s, v_num=0, train/loss=8.810, train/top_5_accuracy=0.350, val/loss=8.650, val/top_5_accuracy=0.374]
+Validation DataLoader 0: 100%|██████████| 10/10 [00:07&lt;00:00,  1.40it/s][A
+Epoch 0:  75%|███████▌  | 6/8 [00:25&lt;00:08,  0.23it/s, v_num=0, train/loss=8.810, train/top_5_accuracy=0.350, val/loss=8.770, val/top_5_accuracy=0.363]
+Epoch 0:  88%|████████▊ | 7/8 [00:27&lt;00:03,  0.26it/s, v_num=0, train/loss=8.810, train/top_5_accuracy=0.350, val/loss=8.770, val/top_5_accuracy=0.363]
+Epoch 0:  88%|████████▊ | 7/8 [00:27&lt;00:03,  0.26it/s, v_num=0, train/loss=9.000, train/top_5_accuracy=0.354, val/loss=8.770, val/top_5_accuracy=0.363]
+Epoch 0: 100%|██████████| 8/8 [00:28&lt;00:00,  0.28it/s, v_num=0, train/loss=9.000, train/top_5_accuracy=0.354, val/loss=8.770, val/top_5_accuracy=0.363]
+Epoch 0: 100%|██████████| 8/8 [00:28&lt;00:00,  0.28it/s, v_num=0, train/loss=8.410, train/top_5_accuracy=0.381, val/loss=8.770, val/top_5_accuracy=0.363]
+Epoch 0: 100%|██████████| 8/8 [00:28&lt;00:00,  0.28it/s, v_num=0, train/loss=8.410, train/top_5_accuracy=0.381, val/loss=8.770, val/top_5_accuracy=0.363]`Trainer.fit` stopped: `max_steps=8` reached.
+Epoch 0: 100%|██████████| 8/8 [00:28&lt;00:00,  0.28it/s, v_num=0, train/loss=8.410, train/top_5_accuracy=0.381, val/loss=8.770, val/top_5_accuracy=0.363]
+✅ ✅ Training completed successfully!
+📁 📁 Checkpoints saved in: /Users/a1/Project/OPG/checkpoints/e2e_test_resume/checkpoints
+📄    📄 step_000000003.ckpt
+📄    📄 step_000000006.ckpt
+✅ Resume training completed, checkpoint: step_000000006.ckpt
+🔍 Verifying checkpoints...
+✅ Initial checkpoint verified: 71.0MB
+✅ Resume checkpoint verified: 71.0MB
+🎤 Running inference tests with trained models...
+🧪 Testing initial checkpoint: step_000000003.ckpt
+🔊 Running inference: --voice RU_Google_Female_Zephyr --emotion neutral --monitor --play
+✅ Inference 1/3 passed (63.9s)
+🔊 Running inference: --voice RU_Male_Goblin_Puchkov --emotion neutral --monitor --play
+✅ Inference 2/3 passed (37.2s)
+🔊 Running inference: --voice RU_Google_Male_Achird --emotion neutral --monitor --play
+✅ Inference 3/3 passed (35.8s)
+🧪 Testing resume checkpoint: step_000000006.ckpt
+🔊 Running inference: --voice RU_Google_Female_Zephyr --emotion neutral --monitor --play
+✅ Inference 1/3 passed (57.2s)
+🔊 Running inference: --voice RU_Male_Goblin_Puchkov --emotion neutral --monitor --play
+✅ Inference 2/3 passed (39.0s)
+🔊 Running inference: --voice RU_Google_Male_Achird --emotion neutral --monitor --play
+✅ Inference 3/3 passed (37.5s)
+🎤 Inference testing completed: 6/6 tests passed
+📊 Generating test report...
+✅ Test report saved: /Users/a1/Project/OPG/fs-python/tests/test_report.json
+==================================================
+🎉 E2E Test PASSED!
+✅ Initial training: 5 steps
+✅ Resume training: 8 steps
+✅ Checkpoints created and verified
+✅ Emotional tokens working
+✅ Inference tests: 6/6 passed
+✅ Average inference time: 45.1s
+<br/></div></td></tr></tbody></table></body></html>
