@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Optional, List, Dict
 import json
 import time
+import difflib
 
 # Add parent directory to path to import finetune_tts
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -23,6 +24,14 @@ from finetune_tts import (
     prepare_dataset_structure,
     start_finetuning
 )
+
+# Try to import whisper
+try:
+    import whisper
+    WHISPER_AVAILABLE = True
+except ImportError:
+    WHISPER_AVAILABLE = False
+    print("⚠️ Whisper not available. Audio recognition will be skipped.")
 
 class TestConfig:
     """Test configuration constants"""
@@ -54,10 +63,114 @@ class TestConfig:
     # Inference testing
     INFERENCE_TEXTS = [
         "Привет! Это тест обученной модели.",
-        "Неожиданно, но это работает!"
+        "Неожиданно, но это работает!",
         "Жаль никто не пришел!"
     ]
     INFERENCE_OUTPUT_DIR = TEST_DATA_DIR / "inference_outputs"
+    
+    # Whisper configuration
+    WHISPER_MODEL = "turbo"  # Use Whisper Turbo
+    MIN_SIMILARITY_THRESHOLD = 0.8  # Minimum text similarity for passing test
+
+class WhisperRecognizer:
+    """Whisper audio recognition for verifying inference quality"""
+    
+    def __init__(self):
+        self.model = None
+        self.available = WHISPER_AVAILABLE
+        
+    def load_model(self):
+        """Load Whisper model"""
+        if not self.available:
+            return False
+            
+        try:
+            print(f"🎧 Loading Whisper {TestConfig.WHISPER_MODEL} model...")
+            self.model = whisper.load_model(TestConfig.WHISPER_MODEL)
+            print("✅ Whisper model loaded successfully")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to load Whisper model: {e}")
+            self.available = False
+            return False
+    
+    def transcribe_audio(self, audio_file: Path) -> Dict:
+        """Transcribe audio file and return results"""
+        if not self.available or not self.model:
+            return {
+                'success': False,
+                'text': '',
+                'error': 'Whisper not available'
+            }
+        
+        try:
+            print(f"🎤 Transcribing: {audio_file.name}")
+            result = self.model.transcribe(str(audio_file), language="ru")
+            
+            transcribed_text = result["text"].strip()
+            print(f"📝 Transcribed: '{transcribed_text}'")
+            
+            return {
+                'success': True,
+                'text': transcribed_text,
+                'language': result.get("language", "unknown"),
+                'segments': result.get("segments", []),
+                'error': None
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'text': '',
+                'error': str(e)
+            }
+    
+    def calculate_similarity(self, original_text: str, transcribed_text: str) -> Dict:
+        """Calculate similarity between original and transcribed text"""
+        # Clean texts for comparison
+        original_clean = self._clean_text(original_text)
+        transcribed_clean = self._clean_text(transcribed_text)
+        
+        # Calculate different similarity metrics
+        sequence_matcher = difflib.SequenceMatcher(None, original_clean, transcribed_clean)
+        similarity_ratio = sequence_matcher.ratio()
+        
+        # Word-level comparison
+        original_words = original_clean.split()
+        transcribed_words = transcribed_clean.split()
+        
+        word_matcher = difflib.SequenceMatcher(None, original_words, transcribed_words)
+        word_similarity = word_matcher.ratio()
+        
+        # Character accuracy (simple)
+        char_accuracy = sum(1 for a, b in zip(original_clean, transcribed_clean) if a == b) / max(len(original_clean), len(transcribed_clean), 1)
+        
+        return {
+            'similarity_ratio': similarity_ratio,
+            'word_similarity': word_similarity,
+            'char_accuracy': char_accuracy,
+            'original_clean': original_clean,
+            'transcribed_clean': transcribed_clean,
+            'passes_threshold': similarity_ratio >= TestConfig.MIN_SIMILARITY_THRESHOLD
+        }
+    
+    def _clean_text(self, text: str) -> str:
+        """Clean text for comparison"""
+        import re
+        
+        # Remove emotional tokens like (joyful), (sad), etc.
+        text = re.sub(r'\([^)]+\)', '', text)
+        
+        # Remove extra whitespace
+        text = ' '.join(text.split())
+        
+        # Convert to lowercase for comparison
+        text = text.lower()
+        
+        # Remove punctuation for more lenient comparison
+        text = re.sub(r'[^\w\s]', '', text)
+        
+        return text.strip()
 
 class E2ETestRunner:
     """Main E2E test runner"""
@@ -68,6 +181,7 @@ class E2ETestRunner:
         self.initial_checkpoint_path: Optional[Path] = None
         self.resume_checkpoint_path: Optional[Path] = None
         self.inference_results = []
+        self.whisper = WhisperRecognizer()
         
     def setup_test_data(self):
         """Setup real Russian voice data for training"""
@@ -135,6 +249,14 @@ class E2ETestRunner:
         
         result = check_requirements()
         assert result, "System requirements check failed"
+        
+        # Initialize Whisper for audio recognition
+        if WHISPER_AVAILABLE:
+            whisper_loaded = self.whisper.load_model()
+            if whisper_loaded:
+                print("✅ Whisper Turbo ready for audio recognition")
+            else:
+                print("⚠️ Whisper failed to load, audio recognition will be skipped")
         
         print("✅ System checks passed")
         
@@ -258,8 +380,8 @@ class E2ETestRunner:
         print(f"✅ All {len(expected_emotions)} emotional tokens verified")
     
     def run_inference_tests(self):
-        """Run inference tests with trained checkpoints"""
-        print("🎤 Running inference tests with trained models...")
+        """Run inference tests with trained checkpoints and audio recognition"""
+        print("🎤 Running inference tests with trained models and Whisper recognition...")
         
         # Create output directory
         TestConfig.INFERENCE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -293,6 +415,11 @@ class E2ETestRunner:
                     play_audio=True
                 )
                 
+                # Run audio recognition if inference succeeded
+                if result['success'] and self.whisper.available:
+                    recognition_result = self._run_audio_recognition(test_text, output_file)
+                    result.update(recognition_result)
+                
                 # Store result for reporting
                 result['checkpoint_type'] = checkpoint_type
                 result['project_name'] = project_name
@@ -300,19 +427,74 @@ class E2ETestRunner:
                 result['voice_name'] = voice_name
                 self.inference_results.append(result)
                 
+                # Print detailed results
                 if result['success']:
                     print(f"✅ Inference {i+1}/{len(TestConfig.INFERENCE_TEXTS)} passed ({result['duration']:.1f}s)")
+                    if 'recognition_success' in result and result['recognition_success']:
+                        print(f"🎧 Recognition: {result['similarity_ratio']:.2f} similarity (threshold: {TestConfig.MIN_SIMILARITY_THRESHOLD})")
+                        if result.get('passes_threshold', False):
+                            print("✅ Audio recognition PASSED")
+                        else:
+                            print("⚠️ Audio recognition below threshold")
                 else:
                     print(f"❌ Inference {i+1}/{len(TestConfig.INFERENCE_TEXTS)} failed: {result['error']}")
         
         # Verify results
         total_tests = len(checkpoints_to_test) * len(TestConfig.INFERENCE_TEXTS)
         passed_tests = sum(1 for r in self.inference_results if r['success'])
+        passed_recognition = sum(1 for r in self.inference_results if r.get('recognition_success', False))
+        passed_threshold = sum(1 for r in self.inference_results if r.get('passes_threshold', False))
         
         print(f"🎤 Inference testing completed: {passed_tests}/{total_tests} tests passed")
+        if self.whisper.available:
+            print(f"🎧 Audio recognition: {passed_recognition}/{total_tests} successful, {passed_threshold}/{total_tests} above threshold")
         
         # At least 50% should pass for a successful test
         assert passed_tests >= total_tests * 0.5, f"Too many inference tests failed: {passed_tests}/{total_tests}"
+    
+    def _run_audio_recognition(self, original_text: str, audio_file: Path) -> Dict:
+        """Run Whisper audio recognition and compare with original text"""
+        if not self.whisper.available:
+            return {
+                'recognition_success': False,
+                'recognition_error': 'Whisper not available'
+            }
+        
+        # Transcribe audio
+        transcription_result = self.whisper.transcribe_audio(audio_file)
+        
+        if not transcription_result['success']:
+            return {
+                'recognition_success': False,
+                'recognition_error': transcription_result['error'],
+                'transcribed_text': ''
+            }
+        
+        # Log original and transcribed texts
+        print(f"\n📝 TEXT COMPARISON for {audio_file.name}:")
+        print(f"🎯 Original text:    '{original_text}'")
+        print(f"🎤 Whisper result:   '{transcription_result['text']}'")
+        
+        # Calculate similarity
+        similarity_result = self.whisper.calculate_similarity(
+            original_text, 
+            transcription_result['text']
+        )
+        
+        print(f"📊 Similarity score: {similarity_result['similarity_ratio']:.3f}")
+        print(f"✅ Passes threshold: {'YES' if similarity_result['passes_threshold'] else 'NO'}")
+        
+        return {
+            'recognition_success': True,
+            'transcribed_text': transcription_result['text'],
+            'similarity_ratio': similarity_result['similarity_ratio'],
+            'word_similarity': similarity_result['word_similarity'],
+            'char_accuracy': similarity_result['char_accuracy'],
+            'passes_threshold': similarity_result['passes_threshold'],
+            'original_clean': similarity_result['original_clean'],
+            'transcribed_clean': similarity_result['transcribed_clean'],
+            'recognition_language': transcription_result.get('language', 'unknown')
+        }
     
     def _run_single_inference(self, text: str, checkpoint_path: Path, voice_name: str, 
                              output_file: Path, play_audio: bool = False) -> dict:
@@ -408,7 +590,7 @@ class E2ETestRunner:
             }
         
     def generate_test_report(self):
-        """Generate a test report with results"""
+        """Generate a test report with results including audio recognition"""
         print("📊 Generating test report...")
         
         # Calculate inference statistics
@@ -416,6 +598,12 @@ class E2ETestRunner:
         passed_inference_tests = sum(1 for r in self.inference_results if r['success'])
         avg_inference_time = sum(r['duration'] for r in self.inference_results) / total_inference_tests if total_inference_tests > 0 else 0
         total_audio_files = sum(1 for r in self.inference_results if r['success'] and r['file_size'] > 0)
+        
+        # Calculate recognition statistics
+        recognition_tests = [r for r in self.inference_results if 'recognition_success' in r]
+        passed_recognition = sum(1 for r in recognition_tests if r['recognition_success'])
+        passed_threshold = sum(1 for r in recognition_tests if r.get('passes_threshold', False))
+        avg_similarity = sum(r.get('similarity_ratio', 0) for r in recognition_tests) / len(recognition_tests) if recognition_tests else 0
         
         report = {
             "test_timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -427,7 +615,9 @@ class E2ETestRunner:
                 "batch_size": TestConfig.BATCH_SIZE,
                 "learning_rate": TestConfig.LEARNING_RATE,
                 "voices_tested": TestConfig.RUSSIAN_VOICES,
-                "inference_texts": TestConfig.INFERENCE_TEXTS
+                "inference_texts": TestConfig.INFERENCE_TEXTS,
+                "whisper_model": TestConfig.WHISPER_MODEL,
+                "similarity_threshold": TestConfig.MIN_SIMILARITY_THRESHOLD
             },
             "training_results": {
                 "initial_checkpoint": str(self.initial_checkpoint_path) if self.initial_checkpoint_path else None,
@@ -443,6 +633,16 @@ class E2ETestRunner:
                 "audio_files_generated": total_audio_files,
                 "detailed_results": self.inference_results
             },
+            "recognition_results": {
+                "whisper_available": self.whisper.available,
+                "total_recognition_tests": len(recognition_tests),
+                "passed_recognition": passed_recognition,
+                "passed_threshold": passed_threshold,
+                "recognition_success_rate": round(passed_recognition / len(recognition_tests) * 100, 1) if recognition_tests else 0,
+                "threshold_pass_rate": round(passed_threshold / len(recognition_tests) * 100, 1) if recognition_tests else 0,
+                "average_similarity": round(avg_similarity, 3),
+                "similarity_threshold": TestConfig.MIN_SIMILARITY_THRESHOLD
+            },
             "status": "PASSED"
         }
         
@@ -454,8 +654,8 @@ class E2ETestRunner:
         
     def run_full_test(self):
         """Run the complete E2E test"""
-        print("🐟 Starting Fish Speech E2E Training Test")
-        print("=" * 50)
+        print("🐟 Starting Fish Speech E2E Training Test with Whisper Recognition")
+        print("=" * 60)
         
         try:
             self.setup_test_data()
@@ -470,21 +670,27 @@ class E2ETestRunner:
             # Calculate stats for final report
             inference_passed = sum(1 for r in self.inference_results if r['success'])
             inference_total = len(self.inference_results)
+            recognition_tests = [r for r in self.inference_results if 'recognition_success' in r]
+            recognition_passed = sum(1 for r in recognition_tests if r.get('passes_threshold', False))
             
-            print("=" * 50)
+            print("=" * 60)
             print("🎉 E2E Test PASSED!")
             print(f"✅ Initial training: {TestConfig.INITIAL_STEPS} steps")
             print(f"✅ Resume training: {TestConfig.RESUME_STEPS} steps")
             print(f"✅ Checkpoints created and verified")
             print(f"✅ Emotional tokens working")
             print(f"✅ Inference tests: {inference_passed}/{inference_total} passed")
+            if self.whisper.available and recognition_tests:
+                avg_similarity = sum(r.get('similarity_ratio', 0) for r in recognition_tests) / len(recognition_tests)
+                print(f"✅ Whisper recognition: {recognition_passed}/{len(recognition_tests)} above threshold")
+                print(f"✅ Average similarity: {avg_similarity:.3f} (threshold: {TestConfig.MIN_SIMILARITY_THRESHOLD})")
             if inference_passed > 0:
                 avg_time = sum(r['duration'] for r in self.inference_results if r['success']) / inference_passed
                 print(f"✅ Average inference time: {avg_time:.1f}s")
             return True
             
         except Exception as e:
-            print("=" * 50)
+            print("=" * 60)
             print(f"❌ E2E Test FAILED: {e}")
             print("Check logs above for details")
             return False

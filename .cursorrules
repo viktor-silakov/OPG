@@ -1,0 +1,16 @@
+# .cursorrules – enforce safe model workflows
+# Scope: any commit touching fs-python/**, model-training or inference code, or changes likely to break runtime.
+
+## Mandatory workflow
+1. **Synchronise tests**  
+   • Update / add tests under `fs-python/tests/**` to cover the change.  
+2. **Synchronise docs**  
+   • Revise README, docstrings, or comments so behaviour and usage stay accurate.  
+3. **Run the suite**  
+   • Execute `cd fs-python && make test`.  
+   • Repeat code+test edits until **all tests pass**.  
+4. **Integrity rules**  
+   • Never skip, stub, or fake test results.  
+   • Block commits that leave tests failing or un-run.  
+5. **Commit**  
+   • Only push once the suite is green and docs/tests reflect reality.
