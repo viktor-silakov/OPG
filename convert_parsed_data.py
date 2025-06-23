@@ -6,9 +6,9 @@ import hashlib
 from pathlib import Path
 from tqdm import tqdm
 
-emotion = "angry"
-parsed_data_dir = Path(f"./parsed_data/{emotion}")
-output_dir = Path(f"./prepared_training_data/{emotion}")
+emotion = "angry2"
+parsed_data_dir = Path(f"../parsed_data/{emotion}")
+output_dir = Path(f"../prepared_training_data/{emotion}")
     
 def print_status(message, emoji="ℹ️"):
     """Prints status with emoji"""

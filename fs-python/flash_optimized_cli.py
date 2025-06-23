@@ -60,20 +60,8 @@ def apply_flash_attention_optimizations():
 def run_flash_optimized_tts(args):
     """Run Fish Speech TTS with Flash Attention optimizations"""
     
-    print("🔥 Flash-Optimized Fish Speech TTS")
-    print("=" * 60)
-    
-    if args.text:
-        print(f"🎯 Text: '{args.text[:60]}{'...' if len(args.text) > 60 else ''}'")
-    else:
-        print(f"🎯 Operation: {' '.join([k for k in ['cache-info', 'list-voices', 'clear-cache', 'create-reference'] if getattr(args, k.replace('-', '_'), False)])}")
-    
-    print(f"🖥️  Device: {args.device}")
-    print(f"⚡ Flash Attention: {'Enabled' if not args.no_flash else 'Disabled'}")
-    
     # Initial memory check
     initial_ram, initial_mps = monitor_memory()
-    print(f"📊 Initial memory: RAM {initial_ram:.1f}MB, MPS {initial_mps:.1f}MB")
     
     # Apply Flash Attention optimizations
     flash_applied = False
@@ -106,6 +94,8 @@ def run_flash_optimized_tts(args):
             cmd.extend(["--model-version", args.model_version])
         if args.model_path:
             cmd.extend(["--model-path", args.model_path])
+        if args.checkpoint:
+            cmd.extend(["--checkpoint", args.checkpoint])
         
         # Voice options
         if args.prompt_tokens:
@@ -148,8 +138,6 @@ def run_flash_optimized_tts(args):
         # List voices option
         if args.list_voices:
             cmd.append("--list-voices")
-        
-        print(f"🚀 Running Flash-Optimized Fish Speech TTS...")
         
         # Run the base CLI with enhanced memory monitoring
         process = subprocess.Popen(
@@ -196,48 +184,18 @@ def run_flash_optimized_tts(args):
             print(stderr, end='', file=sys.stderr)
         
         if process.returncode == 0:
-            print(f"\n🔥 Flash-Optimized TTS completed successfully!")
-            print(f"⏱️  Generation time: {generation_time:.2f}s")
-            print(f"📊 Memory usage:")
-            print(f"   Peak RAM: {peak_ram - initial_ram:.1f}MB (total: {peak_ram:.1f}MB)")
-            print(f"   Peak MPS: {peak_mps - initial_mps:.1f}MB (total: {peak_mps:.1f}MB)")
-            print(f"   Final delta: RAM {final_ram - initial_ram:+.1f}MB, MPS {final_mps - initial_mps:+.1f}MB")
-            
-            # Memory efficiency metrics
-            if memory_samples:
-                avg_ram = sum(sample[0] for sample in memory_samples) / len(memory_samples)
-                avg_mps = sum(sample[1] for sample in memory_samples) / len(memory_samples)
-                
-                print(f"📊 Memory efficiency:")
-                print(f"   Average RAM: {avg_ram:.1f}MB")
-                print(f"   Average MPS: {avg_mps:.1f}MB")
-                if avg_ram > 0:
-                    print(f"   Memory stability: {100 - (peak_ram - avg_ram) / avg_ram * 100:.1f}%")
-            
-            # Check if output file exists and show Flash Attention summary
+            # Check if output file exists for metrics
             if Path(args.output).exists():
                 file_size = Path(args.output).stat().st_size / 1024
-                print(f"🎵 Audio output: {args.output} ({file_size:.1f}KB)")
-                
-                # Flash Attention performance summary
-                print(f"\n🔥 Flash Attention optimizations:")
-                if flash_applied:
-                    print(f"   ✅ Enhanced Flash Attention: Applied")
-                    print(f"   ⚡ Multi-backend fallback: Enabled")
-                    print(f"   🧹 Advanced memory cleanup: Active")
-                    print(f"   📊 Real-time optimization: Active")
-                else:
-                    print(f"   ⚠️  Standard attention: Using fallback")
-                
-                print(f"   🔧 MPS memory management: Enhanced")
-                print(f"   💾 Garbage collection: Aggressive")
+                avg_ram = sum(sample[0] for sample in memory_samples) / len(memory_samples) if memory_samples else 0
+                avg_mps = sum(sample[1] for sample in memory_samples) / len(memory_samples) if memory_samples else 0
                 
                 return True, {
                     'time': generation_time,
                     'peak_ram': peak_ram - initial_ram,
                     'peak_mps': peak_mps - initial_mps,
-                    'avg_ram': avg_ram - initial_ram if memory_samples else 0,
-                    'avg_mps': avg_mps - initial_mps if memory_samples else 0,
+                    'avg_ram': avg_ram - initial_ram,
+                    'avg_mps': avg_mps - initial_mps,
                     'output_file': args.output,
                     'file_size_kb': file_size,
                     'flash_attention_applied': flash_applied,
@@ -246,11 +204,9 @@ def run_flash_optimized_tts(args):
             else:
                 return True, None  # Success but no output file (e.g., cache operations)
         else:
-            print(f"\n❌ Flash-Optimized TTS failed with return code: {process.returncode}")
             return False, None
             
     except Exception as e:
-        print(f"❌ Error during Flash-Optimized TTS: {e}")
         return False, None
     
     finally:
@@ -284,6 +240,7 @@ def main():
     parser.add_argument("--model-version", default="1.5", choices=["1.4", "1.5", "1.6"], 
                        help="Fish Speech model version (default: 1.5)")
     parser.add_argument("--model-path", type=str, help="Path to custom fine-tuned model (overrides --model-version)")
+    parser.add_argument("--checkpoint", type=str, help="Path to model checkpoint (.ckpt file or directory with model files)")
     
     # Voice options
     parser.add_argument("--prompt-tokens", type=str, help="Path to .npy file with voice reference")
@@ -323,22 +280,8 @@ def main():
     
     args = parser.parse_args()
     
-    print("🔥 Fish Speech with Flash Attention Optimizations")
-    print("=" * 80)
-    
-    # System info
-    print(f"🖥️  System: PyTorch {torch.__version__}")
-    print(f"🧠 Available RAM: {psutil.virtual_memory().available / 1024**3:.1f}GB")
-    
-    # Check Flash Attention support
-    if hasattr(torch.nn.functional, 'scaled_dot_product_attention'):
-        print(f"⚡ Flash Attention: ✅ Supported")
-    else:
-        print(f"⚡ Flash Attention: ❌ Not supported in this PyTorch version")
-    
     device = args.device
     if device == "mps" and not torch.backends.mps.is_available():
-        print("⚠️  MPS not available, falling back to CPU")
         device = "cpu"
         args.device = device
     
@@ -377,46 +320,39 @@ def main():
     if args.voice and (args.prompt_tokens or args.prompt_text or args.prompt_tokens_file):
         parser.error("Parameter --voice cannot be used with --prompt-tokens, --prompt-text or --prompt-tokens-file")
     
+    # Validate checkpoint path if provided
+    if args.checkpoint:
+        checkpoint_path = Path(args.checkpoint)
+        if not checkpoint_path.exists():
+            parser.error(f"Checkpoint file not found: {args.checkpoint}")
+        
+        # Support both .ckpt files and directories with model files
+        if checkpoint_path.is_file():
+            if not args.checkpoint.endswith('.ckpt'):
+                parser.error("Checkpoint file must have .ckpt extension")
+        elif checkpoint_path.is_dir():
+            # Check if directory contains model files
+            required_files = ["config.json"]
+            missing_files = [f for f in required_files if not (checkpoint_path / f).exists()]
+            if missing_files:
+                parser.error(f"Checkpoint directory missing required files: {missing_files}")
+    
     # Run Flash-Optimized TTS
     success, result = run_flash_optimized_tts(args)
     
-    if success and result:
-        print(f"\n🏆 Flash-Optimized TTS completed successfully!")
-        
-        if args.monitor:
-            print(f"\n📊 Detailed Performance Metrics:")
-            print(f"   Generation time: {result['time']:.2f}s")
-            print(f"   Peak RAM usage: {result['peak_ram']:.1f}MB")
-            print(f"   Peak MPS usage: {result['peak_mps']:.1f}MB")
-            print(f"   Average RAM usage: {result['avg_ram']:.1f}MB")
-            print(f"   Average MPS usage: {result['avg_mps']:.1f}MB")
-            print(f"   Output file size: {result['file_size_kb']:.1f}KB")
-            print(f"   Generation speed: {result['file_size_kb'] / result['time']:.1f} KB/s")
-            print(f"   Flash Attention: {'✅ Applied' if result['flash_attention_applied'] else '❌ Not applied'}")
-            print(f"   Memory samples: {result['memory_samples']}")
-        
-        print(f"\n🔥 Flash Attention Benefits:")
-        if result['flash_attention_applied']:
-            print(f"   • Reduced memory complexity from O(N²) to O(N)")
-            print(f"   • Hardware-optimized attention kernels")
-            print(f"   • Multi-backend fallback for stability")
-            print(f"   • Real-time memory optimization")
-        else:
-            print(f"   • Standard attention used (Flash optimizations not applied)")
-        
-        print(f"\n💡 Performance tips:")
-        print(f"   • Use --benchmark to test Flash Attention performance")
-        print(f"   • Close other applications for maximum memory efficiency")
-        print(f"   • Shorter texts benefit from optimized KV caching")
-        print(f"   • Flash Attention provides best gains on longer sequences")
-        
-    elif success:
-        print(f"\n✅ Operation completed successfully!")
-    else:
-        print(f"\n❌ Flash-Optimized TTS failed")
-        return 1
+    if success and result and args.monitor:
+        print(f"\n📊 Detailed Performance Metrics:")
+        print(f"   Generation time: {result['time']:.2f}s")
+        print(f"   Peak RAM usage: {result['peak_ram']:.1f}MB")
+        print(f"   Peak MPS usage: {result['peak_mps']:.1f}MB")
+        print(f"   Average RAM usage: {result['avg_ram']:.1f}MB")
+        print(f"   Average MPS usage: {result['avg_mps']:.1f}MB")
+        print(f"   Output file size: {result['file_size_kb']:.1f}KB")
+        print(f"   Generation speed: {result['file_size_kb'] / result['time']:.1f} KB/s")
+        print(f"   Flash Attention: {'✅ Applied' if result['flash_attention_applied'] else '❌ Not applied'}")
+        print(f"   Memory samples: {result['memory_samples']}")
     
-    return 0
+    return 0 if success else 1
 
 
 if __name__ == "__main__":

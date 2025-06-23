@@ -572,3 +572,59 @@ The first run will automatically download the Fish Speech model (~1.3GB) to the 
 ## License
 
 This project uses Fish Speech under CC-BY-NC-SA-4.0 license. Please respect the licensing terms when using for commercial purposes.
+
+## Checkpoint Inference
+
+### Automatic LoRA Checkpoint Conversion
+
+The CLI now supports automatic conversion and inference with Lightning LoRA checkpoints:
+
+```bash
+# Basic checkpoint inference
+python cli_tts.py "Your text here" --checkpoint path/to/checkpoint.ckpt
+
+# Flash-optimized checkpoint inference  
+python flash_optimized_cli.py "Your text here" --checkpoint path/to/checkpoint.ckpt
+```
+
+### How it works:
+
+1. **Automatic Detection**: System detects Lightning checkpoint files (.ckpt)
+2. **Config Parsing**: Reads hydra config to extract base model and LoRA parameters
+3. **Automatic Conversion**: Converts LoRA checkpoint to inference format using `merge_lora.py`
+4. **Caching**: Converted models are cached for future use
+5. **Inference**: Uses the merged model for generation
+
+### Supported Checkpoint Types:
+
+- **Lightning LoRA Checkpoints** (.ckpt files) - Automatically converted
+- **Inference Model Directories** - Used directly
+- **Custom Model Paths** - Specified with --model-path
+
+### Example Usage:
+
+```bash
+# Compare base model vs LoRA checkpoint
+python cli_tts.py "Test text" -o base_model.wav
+python cli_tts.py "Test text" --checkpoint checkpoints/my_model/step_001000.ckpt -o lora_model.wav
+
+# Flash-optimized with checkpoint
+python flash_optimized_cli.py "Long text for generation" \
+  --checkpoint checkpoints/my_model/step_001000.ckpt \
+  --monitor
+```
+
+### Cache Management:
+
+Converted checkpoints are cached in the same directory as the original checkpoint:
+```
+checkpoints/my_model/
+├── checkpoints/
+│   ├── step_001000.ckpt
+│   └── converted_inference/     # Auto-generated cache
+│       ├── model.pth
+│       ├── config.json
+│       └── ...
+└── .hydra/
+    └── config.yaml
+```

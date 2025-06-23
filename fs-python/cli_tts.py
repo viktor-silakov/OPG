@@ -43,7 +43,9 @@ def get_cache_key(text, prompt_tokens=None, prompt_text=None, **kwargs):
         'pitch': kwargs.get('pitch', 1.0),
         'emotion': kwargs.get('emotion', ''),
         'intensity': kwargs.get('intensity', 0.5),
-        'style': kwargs.get('style', '')
+        'style': kwargs.get('style', ''),
+        # Checkpoint parameter
+        'checkpoint': kwargs.get('checkpoint', '')
     }
     
     # Add the hash of the prompt_tokens file if specified
@@ -302,6 +304,7 @@ def synthesize_speech_cli(text, output_path="output.wav", device="mps", prompt_t
     emotion = kwargs.get('emotion')
     intensity = kwargs.get('intensity', 0.5)
     style = kwargs.get('style')
+    checkpoint = kwargs.get('checkpoint')
     
     # Show active prosody parameters
     prosody_params = []
@@ -324,7 +327,62 @@ def synthesize_speech_cli(text, output_path="output.wav", device="mps", prompt_t
     fish_speech_dir = Path("fish-speech")
     
     # Define paths for semantic and VQGAN models
-    semantic_model_path = checkpoints_dir
+    if checkpoint:
+        checkpoint_path = Path(checkpoint)
+        
+        if checkpoint_path.is_file() and checkpoint_path.suffix == '.ckpt':
+            # This is a Lightning checkpoint (likely LoRA fine-tuned)
+            print(f"📦 Detected Lightning checkpoint: {checkpoint_path}")
+            
+            # Check for hydra config to determine base model
+            hydra_config = checkpoint_path.parent.parent / ".hydra" / "config.yaml"
+            if hydra_config.exists():
+                print(f"📋 Found training config: {hydra_config}")
+                
+                # Try to convert LoRA checkpoint to inference format
+                converted_model_dir = convert_lora_checkpoint(checkpoint_path, hydra_config)
+                
+                if converted_model_dir and converted_model_dir.exists():
+                    # Use converted model
+                    semantic_model_path = converted_model_dir
+                    checkpoint_file = None
+                    print(f"🎯 Using converted LoRA model: {semantic_model_path}")
+                else:
+                    # Fallback to base model
+                    try:
+                        import yaml
+                        with open(hydra_config, 'r') as f:
+                            config = yaml.safe_load(f)
+                        
+                        base_model_path = config.get('pretrained_ckpt_path')
+                        if base_model_path:
+                            semantic_model_path = Path(base_model_path)
+                            print(f"⚠️  Conversion failed, using base model: {semantic_model_path}")
+                        else:
+                            semantic_model_path = checkpoints_dir
+                            print(f"⚠️  Could not find base model, using default")
+                        checkpoint_file = None
+                    except Exception as e:
+                        print(f"⚠️  Error parsing config: {e}, using default model")
+                        semantic_model_path = checkpoints_dir
+                        checkpoint_file = None
+            else:
+                print(f"⚠️  No hydra config found, treating as regular checkpoint")
+                semantic_model_path = checkpoints_dir
+                checkpoint_file = checkpoint_path
+                
+        elif checkpoint_path.is_dir():
+            # Regular checkpoint directory
+            semantic_model_path = checkpoint_path
+            checkpoint_file = None
+            print(f"📁 Using checkpoint directory: {semantic_model_path}")
+        else:
+            print(f"❌ Unsupported checkpoint format: {checkpoint_path}")
+            semantic_model_path = checkpoints_dir
+            checkpoint_file = None
+    else:
+        semantic_model_path = checkpoints_dir
+        checkpoint_file = None
     
     # Get VQGAN model path with caching (avoids repeated downloads)
     vqgan_model_path = get_vqgan_model_path(checkpoints_dir)
@@ -338,10 +396,11 @@ def synthesize_speech_cli(text, output_path="output.wav", device="mps", prompt_t
     cached_tokens = None
     
     if use_cache:
-        # Include prosody parameters in cache key
+        # Include prosody parameters and checkpoint in cache key
         cache_key = get_cache_key(text, prompt_tokens, prompt_text, 
                                  speed=speed, volume=volume, pitch=pitch,
-                                 emotion=emotion, intensity=intensity, style=style)
+                                 emotion=emotion, intensity=intensity, style=style,
+                                 checkpoint=checkpoint)
         cached_tokens = get_cached_tokens(cache_key, cache_dir)
         
         if cached_tokens:
@@ -375,6 +434,11 @@ def synthesize_speech_cli(text, output_path="output.wav", device="mps", prompt_t
                     "--temperature", "0.7",
                     "--repetition-penalty", "1.2"
                 ]
+                
+                # Note about checkpoint loading
+                if checkpoint_file:
+                    print(f"🔧 Note: Using Lightning checkpoint directly (not converted)")
+                    print(f"💡 For better performance, consider converting to inference format")
                 
                 # Add emotion and style parameters if supported
                 # Note: emotion parameters are not supported in the base version of Fish Speech
@@ -484,6 +548,83 @@ def synthesize_speech_cli(text, output_path="output.wav", device="mps", prompt_t
         traceback.print_exc()
         return False
 
+def convert_lora_checkpoint(checkpoint_path, hydra_config_path, output_dir=None):
+    """Convert Lightning LoRA checkpoint to inference format"""
+    checkpoint_path = Path(checkpoint_path)
+    hydra_config_path = Path(hydra_config_path)
+    
+    if output_dir is None:
+        # Create unique directory for each checkpoint
+        checkpoint_name = checkpoint_path.stem  # e.g., "step_000002100"
+        output_dir = checkpoint_path.parent / f"converted_inference_{checkpoint_name}"
+    else:
+        output_dir = Path(output_dir)
+    
+    # Check if already converted
+    if (output_dir / "model.pth").exists() and (output_dir / "config.json").exists():
+        print(f"✅ Converted model already exists: {output_dir}")
+        return output_dir
+    
+    print(f"🔄 Converting LoRA checkpoint to inference format...")
+    print(f"📦 Checkpoint: {checkpoint_path}")
+    print(f"📋 Config: {hydra_config_path}")
+    print(f"📁 Output: {output_dir}")
+    
+    try:
+        import yaml
+        
+        # Read hydra config
+        with open(hydra_config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        base_model_path = config.get('pretrained_ckpt_path')
+        lora_config = config.get('model', {}).get('model', {}).get('lora_config')
+        
+        if not base_model_path or not lora_config:
+            print(f"❌ Could not extract required info from config")
+            return None
+        
+        # Determine LoRA config name
+        r = lora_config.get('r', 8)
+        alpha = lora_config.get('lora_alpha', 16)
+        lora_config_name = f"r_{r}_alpha_{alpha}"
+        
+        print(f"🔧 LoRA config: {lora_config_name} (r={r}, alpha={alpha})")
+        print(f"🎯 Base model: {base_model_path}")
+        
+        # Build merge_lora command
+        fish_speech_dir = Path("fish-speech")
+        
+        merge_cmd = [
+            sys.executable, "-m", "tools.llama.merge_lora",
+            "--lora-config", lora_config_name,
+            "--base-weight", str(base_model_path),
+            "--lora-weight", str(checkpoint_path.resolve()),
+            "--output", str(output_dir.resolve())
+        ]
+        
+        print(f"🚀 Running merge command...")
+        result = subprocess.run(
+            merge_cmd,
+            capture_output=True,
+            text=True,
+            cwd=fish_speech_dir
+        )
+        
+        if result.returncode == 0:
+            print(f"✅ LoRA checkpoint converted successfully!")
+            print(f"📁 Converted model: {output_dir}")
+            return output_dir
+        else:
+            print(f"❌ LoRA conversion failed:")
+            print(f"stderr: {result.stderr}")
+            print(f"stdout: {result.stdout}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Error during LoRA conversion: {e}")
+        return None
+
 def main():
     parser = argparse.ArgumentParser(description="Fish Speech CLI TTS")
     parser.add_argument("text", nargs='?', help="Text to synthesize")
@@ -495,6 +636,7 @@ def main():
     parser.add_argument("--model-version", default="1.5", choices=["1.4", "1.5", "1.6"], 
                        help="Fish Speech model version (default: 1.5)")
     parser.add_argument("--model-path", type=str, help="Path to custom fine-tuned model (overrides --model-version)")
+    parser.add_argument("--checkpoint", type=str, help="Path to model checkpoint (.ckpt file or directory with model files)")
     
     # Voice options
     parser.add_argument("--prompt-tokens", type=str, help="Path to .npy file with voice reference")
@@ -531,7 +673,9 @@ def main():
     
     print("🐟 Fish Speech CLI TTS")
     print(f"💻 Device: {args.device}")
-    if args.model_path:
+    if args.checkpoint:
+        print(f"📦 Checkpoint: {args.checkpoint}")
+    elif args.model_path:
         print(f"🎤 Custom model: {args.model_path}")
     else:
         print(f"🤖 Model: Fish Speech {args.model_version}")
@@ -548,6 +692,23 @@ def main():
     
     if args.intensity is not None and not (0.0 <= args.intensity <= 1.0):
         parser.error("Emotion intensity must be between 0.0 and 1.0")
+    
+    # Validate checkpoint path if provided
+    if args.checkpoint:
+        checkpoint_path = Path(args.checkpoint)
+        if not checkpoint_path.exists():
+            parser.error(f"Checkpoint file not found: {args.checkpoint}")
+        
+        # Support both .ckpt files and directories with model files
+        if checkpoint_path.is_file():
+            if not args.checkpoint.endswith('.ckpt'):
+                parser.error("Checkpoint file must have .ckpt extension")
+        elif checkpoint_path.is_dir():
+            # Check if directory contains model files
+            required_files = ["config.json"]
+            missing_files = [f for f in required_files if not (checkpoint_path / f).exists()]
+            if missing_files:
+                parser.error(f"Checkpoint directory missing required files: {missing_files}")
     
     # Check MPS availability
     if args.device == "mps" and not torch.backends.mps.is_available():
@@ -689,7 +850,8 @@ def main():
         pitch=args.pitch,
         emotion=args.emotion,
         intensity=args.intensity,
-        style=args.style
+        style=args.style,
+        checkpoint=args.checkpoint
     )
     
     if success and args.play and shutil.which("afplay"):

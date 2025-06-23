@@ -28,6 +28,12 @@ PAD_TOKEN = "<|pad|>"
 IM_START_TOKEN = "<|im_start|>"
 IM_END_TOKEN = "<|im_end|>"
 
+# Additional tokens from base model
+PHONEME_START_TOKEN = "<|phoneme_start|>"
+PHONEME_END_TOKEN = "<|phoneme_end|>"
+TOOL_CALL_START_TOKEN = "<|tool_call_start|>"
+TOOL_CALL_END_TOKEN = "<|tool_call_end|>"
+
 MODALITY_TEXT_TOKEN = "<|text|>"
 MODALITY_VOICE_TOKEN = "<|voice|>"
 MODALITY_INTERLEAVE_TOKEN = "<|interleave|>"
@@ -37,9 +43,14 @@ MODALITY_TOKENS = {
     "interleave": MODALITY_INTERLEAVE_TOKEN,
 }
 
-PLACEHOLDER_TOKEN = [""] * 4
-for i in range(4):
-    PLACEHOLDER_TOKEN[i] = f"<|placeholder:{i}|>"
+# Calculate how many placeholder tokens needed for checkpoint compatibility
+ORIGINAL_VOCAB_SIZE = 101041  # Current size with emotions
+TARGET_VOCAB_SIZE = 102048   # Checkpoint's expected size
+NEEDED_PLACEHOLDERS = TARGET_VOCAB_SIZE - ORIGINAL_VOCAB_SIZE  # = 1007
+
+PLACEHOLDER_TOKEN = [""] * NEEDED_PLACEHOLDERS
+for i in range(NEEDED_PLACEHOLDERS):
+    PLACEHOLDER_TOKEN[i] = f"<|checkpoint_compat:{i}|>"
 
 SEMANTIC_TOKEN_TEMPLATE = "<|semantic:{i}|>"
 SEMANTIC_TOKENS = [SEMANTIC_TOKEN_TEMPLATE.format(i=i) for i in range(1024)]
@@ -64,15 +75,16 @@ ALL_SPECIAL_TOKENS = [
     PAD_TOKEN,
     IM_START_TOKEN,
     IM_END_TOKEN,
-    PLACEHOLDER_TOKEN[0],
-    PLACEHOLDER_TOKEN[1],
-    PLACEHOLDER_TOKEN[2],
-    PLACEHOLDER_TOKEN[3],
+    PHONEME_START_TOKEN,
+    PHONEME_END_TOKEN,
+    TOOL_CALL_START_TOKEN,
+    TOOL_CALL_END_TOKEN,
     MODALITY_TEXT_TOKEN,
     MODALITY_VOICE_TOKEN,
     MODALITY_INTERLEAVE_TOKEN,
-    *SEMANTIC_TOKENS,
-    *EMOTION_TOKENS,
+    *SEMANTIC_TOKENS,     # Semantic tokens 0-1023
+    *EMOTION_TOKENS,      # Emotion tokens: 101036-101040
+    *PLACEHOLDER_TOKEN,   # Compatibility tokens: 101041-102047
 ]
 
 

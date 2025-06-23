@@ -42,6 +42,19 @@ class TextToSemantic(L.LightningModule):
             if "lora" not in name:
                 state_dict.pop(name)
 
+    def load_state_dict(self, state_dict, strict=True):
+        # Handle LoRA-only checkpoints specially
+        is_lora_only = all("lora" in name for name in state_dict.keys()) if state_dict else False
+        
+        if is_lora_only and len(state_dict) > 0:
+            log.info(f"Loading LoRA-only state_dict with {len(state_dict)} parameters")
+            # Load only LoRA parameters, ignore missing base model weights
+            return super().load_state_dict(state_dict, strict=False)
+        else:
+            # Standard loading for full checkpoints
+            log.info("Loading full state_dict")
+            return super().load_state_dict(state_dict, strict=strict)
+
     def configure_optimizers(self) -> OptimizerLRScheduler:
         # Get weight decay parameters
         weight_decay_parameters, other_parameters = [], []
