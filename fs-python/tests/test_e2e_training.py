@@ -119,26 +119,15 @@ class E2ETestRunner:
     def _add_emotional_tokens(self, text: str, voice_name: str) -> str:
         """Add emotional tokens to text based on voice character"""
         
-        # Define emotions for different voice types
+        # Simple approach: just add one emotion token at the beginning
         voice_emotions = {
-            "RU_Google_Female_Zephyr": ["(joyful)", "(surprised)"],
-            "RU_Male_Goblin_Puchkov": ["(angry)", "(sad)"],
-            "RU_Google_Male_Achird": ["(joyful)", "(scared)"]
+            "RU_Google_Female_Zephyr": "(joyful)",
+            "RU_Male_Goblin_Puchkov": "(angry)",
+            "RU_Google_Male_Achird": "(joyful)"
         }
         
-        emotions = voice_emotions.get(voice_name, ["(joyful)"])
-        
-        # Split text into sentences and add random emotions
-        import random
-        sentences = [s.strip() for s in text.split('.') if s.strip()]
-        enhanced_sentences = []
-        
-        for sentence in sentences:
-            if sentence:
-                emotion = random.choice(emotions)
-                enhanced_sentences.append(f"{emotion} {sentence}")
-        
-        return '. '.join(enhanced_sentences) + '.'
+        emotion = voice_emotions.get(voice_name, "(joyful)")
+        return f"{emotion} {text}"
         
     def run_system_checks(self):
         """Run system requirement checks"""

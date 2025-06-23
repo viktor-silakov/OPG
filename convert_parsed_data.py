@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 from tqdm import tqdm
 
-emotion = "angry2"
+emotion = "scared"
 parsed_data_dir = Path(f"../parsed_data/{emotion}")
 output_dir = Path(f"../prepared_training_data/{emotion}")
     
